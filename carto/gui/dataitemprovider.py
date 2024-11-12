@@ -85,7 +85,7 @@ class RootCollection(QgsDataCollectionItem):
         return actions
 
     def show_settings(self):
-        dlg = SettingsDialog()
+        dlg = SettingsDialog(iface.mainWindow())
         dlg.exec_()
 
     def logout(self):
@@ -128,16 +128,6 @@ class ConnectionItem(QgsDataCollectionItem):
             item = DatabaseItem(self, database)
             children.append(item)
         return children
-
-    def execute_sql(self):
-        return
-        """
-        dialog = ExecuteSqlDialog(self)
-        dialog.exec_()
-        sql = dialog.sql
-        if sql:
-            CartoApi.instance().execute_query(self.connection.name, sql)
-        """
 
 
 class DatabaseItem(QgsDataCollectionItem):
@@ -184,7 +174,7 @@ class SchemaItem(QgsDataCollectionItem):
         return actions
 
     def import_layer(self):
-        dialog = ImportLayerDialog(self)
+        dialog = ImportDialog(iface.mainWindow())
         dialog.exec_()
         if dialog.layer:
             layer = dialog.layer
@@ -250,7 +240,7 @@ class TableItem(QgsDataItem):
         return actions
 
     def add_layer_filtered(self):
-        dlg = DownloadFilteredLayerDialog(self)
+        dlg = DownloadFilteredLayerDialog(iface.mainWindow())
         dlg.exec_()
         if dlg.accepted:
             where = dlg.where

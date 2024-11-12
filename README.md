@@ -1,6 +1,6 @@
-# Kart QGIS Plugin
+# Carto QGIS Plugin
 
-A [QGIS](https://qgis.org) plugin to integrate and work with [Carto](https://carto.com) data providerssitories.
+A [QGIS](https://qgis.org) plugin to integrate and work with [Carto](https://carto.com) data providers.
 
 [![License: GPL v2](https://img.shields.io/badge/License-GPLv2-blue.svg)](./LICENSE.md)
 

@@ -13,8 +13,8 @@ WIDGET, BASE = uic.loadUiType(
 
 
 class SettingsDialog(BASE, WIDGET):
-    def __init__(self):
-        super(QDialog, self).__init__(iface.mainWindow())
+    def __init__(self, parent=None):
+        super(QDialog, self).__init__(parent)
         self.setupUi(self)
 
         self.bar = QgsMessageBar()
