@@ -78,16 +78,11 @@ class LayerTracker:
                 layer.afterCommitChanges.connect(upload_changes_func)
                 before_commit_func = partial(self._before_commit, layer)
                 layer.beforeCommitChanges.connect(before_commit_func)
-                schema_changed_func = partial(self.schema_changed, layer)
-                layer.attributeAdded.connect(schema_changed_func)
-                layer.attributeDeleted.connect(schema_changed_func)
-                self.connected[layer.id()] = [
-                    upload_changes_func,
-                    before_commit_func,
-                    schema_changed_func,
-                ]
+                layer.committedAttributesAdded.connect(self.schema_changed)
+                layer.committedAttributesDeleted.connect(self.schema_changed)
+                self.connected[layer.id()] = [upload_changes_func, before_commit_func]
 
-    def schema_changed(self, idx):
+    def schema_changed(self, attrs):
         self.schema_has_changed = True
 
     def attributes_changed(self, layerid, values):

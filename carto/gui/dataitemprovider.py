@@ -35,11 +35,15 @@ def icon(f):
     return QIcon(os.path.join(pluginPath, "img", f))
 
 
-cartoIcon = icon("carto.png")
-databaseIcon = icon("database.png")
-schemaIcon = icon("schema.png")
-connectionIcon = icon("connection.png")
-tableIcon = icon("table.png")
+cartoIcon = icon("carto.svg")
+databaseIcon = icon("folder.svg")
+schemaIcon = icon("folder.svg")
+bigqueryIcon = icon("bigquery.svg")
+snowflakeIcon = icon("snowflake.svg")
+redshiftIcon = icon("redshift.svg")
+databricksIcon = icon("databricks.svg")
+postgresIcon = icon("postgres.svg")
+tableIcon = icon("table.svg")
 
 
 class DataItemProvider(QgsDataItemProvider):
@@ -123,7 +127,19 @@ class ConnectionItem(QgsDataCollectionItem):
         QgsDataCollectionItem.__init__(
             self, parent, connection.name, "/Carto/connection" + connection.name
         )
-        self.setIcon(connectionIcon)
+        print(connection.provider_type)
+        if connection.provider_type == "bigquery":
+            self.setIcon(bigqueryIcon)
+        elif connection.provider_type == "snowflake":
+            self.setIcon(snowflakeIcon)
+        elif connection.provider_type == "redshift":
+            self.setIcon(redshiftIcon)
+        elif connection.provider_type == "databricks":
+            self.setIcon(databricksIcon)
+        elif connection.provider_type == "postgres":
+            self.setIcon(postgresIcon)
+        else:
+            self.setIcon(cartoIcon)
         self.connection = connection
 
     def createChildren(self):
@@ -193,14 +209,18 @@ class SchemaItem(QgsDataCollectionItem):
             )
 
 
+MAX_TABLE_SIZE = 1000000
+
+
 class TableItem(QgsDataItem):
     def __init__(self, parent, table):
         QgsDataItem.__init__(
             self, QgsDataItem.Custom, parent, table.name, "/Carto/table/" + table.name
         )
-        self.setIcon(tableIcon)
-        self.populate()
         self.table = table
+        self.setIcon(tableIcon)
+        self.setEnabled(table.size < MAX_TABLE_SIZE)
+        self.populate()
 
     def handleDoubleClick(self):
         return True

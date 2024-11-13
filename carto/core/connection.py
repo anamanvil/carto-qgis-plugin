@@ -108,7 +108,10 @@ class Schema:
                 self.database.databaseid,
                 self.schemaid,
             )
-            self._tables = [Table(table["id"], table["name"], self) for table in tables]
+            self._tables = [
+                Table(table["id"], table["name"], table["size"], self)
+                for table in tables
+            ]
         return self._tables
 
     def can_write(self):
@@ -156,10 +159,11 @@ class Schema:
 
 class Table:
 
-    def __init__(self, tableid, name, schema):
+    def __init__(self, tableid, name, size, schema):
         self.tableid = tableid
         self.name = name
         self.schema = schema
+        self.size = size
         self._table_info = None
 
     def table_info(self):

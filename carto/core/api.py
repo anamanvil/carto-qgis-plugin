@@ -126,7 +126,7 @@ class CartoApi(object):
             f"connections/{connectionid}/resources/{databaseid}.{schemaid}"
         )["children"]
         return [
-            {"id": table["id"].split(".")[-1], "name": table["name"]}
+            {"id": table["id"].split(".")[-1], "name": table["name"], "size": 0}
             for table in tables
             if table["type"] == "table"
         ]
