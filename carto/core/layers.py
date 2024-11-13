@@ -23,6 +23,7 @@ from qgis.core import (
 from qgis.PyQt.QtCore import Qt
 
 from carto.core.api import CartoApi
+from carto.core.logging import error
 
 
 pluginPath = os.path.dirname(__file__)
@@ -61,6 +62,7 @@ class LayerTracker:
 
         self.connected = {}
         self.layer_changes = {}
+        self.schema_has_changed = False
 
     def layer_removed(self, layer):
         pass
@@ -68,26 +70,25 @@ class LayerTracker:
     def layer_added(self, layer):
         if isinstance(layer, QgsVectorLayer):
             if is_carto_layer(layer):
-                attributes_changed_func = partial(self.attributes_changed, layer)
                 layer.committedAttributeValuesChanges.connect(self.attributes_changed)
-                geoms_changed_func = partial(self.geoms_changed, layer)
                 layer.committedGeometriesChanges.connect(self.geoms_changed)
-                features_removed_func = partial(self.features_removed, layer)
-                layer.committedFeaturesRemoved.connect(features_removed_func)
-                features_added_func = partial(self.features_added, layer)
-                layer.committedFeaturesAdded.connect(features_added_func)
+                layer.committedFeaturesRemoved.connect(self.features_removed)
+                layer.committedFeaturesAdded.connect(self.features_added)
                 upload_changes_func = partial(self.upload_changes, layer)
                 layer.afterCommitChanges.connect(upload_changes_func)
                 before_commit_func = partial(self._before_commit, layer)
                 layer.beforeCommitChanges.connect(before_commit_func)
+                schema_changed_func = partial(self.schema_changed, layer)
+                layer.attributeAdded.connect(schema_changed_func)
+                layer.attributeDeleted.connect(schema_changed_func)
                 self.connected[layer.id()] = [
                     upload_changes_func,
-                    attributes_changed_func,
-                    geoms_changed_func,
                     before_commit_func,
-                    features_removed_func,
-                    features_added_func,
+                    schema_changed_func,
                 ]
+
+    def schema_changed(self, idx):
+        self.schema_has_changed = True
 
     def attributes_changed(self, layerid, values):
         self.layer_changes[layerid].attributes_changed = values
@@ -103,8 +104,17 @@ class LayerTracker:
 
     def _before_commit(self, layer):
         self.layer_changes[layer.id()] = Changes()
+        self.schema_has_changed = False
 
     def upload_changes(self, layer):
+        if self.schema_has_changed:
+            iface.messageBar().pushMessage(
+                "Table schema has changed: changes will not be uploaded upstream",
+                level=Qgis.Warning,
+                duration=5,
+            )
+            return
+            # TODO: handle schema changes in previous edits, comparing with original schema
         statements = []
         fqn = f"`{fqn_from_layer(layer)}`"
         pk_field = pk_from_layer(layer)
@@ -126,7 +136,7 @@ class LayerTracker:
             for featureid, geom in self.layer_changes[layer.id()].geoms_changed.items():
                 pk_value = layer.getFeature(featureid)[pk_field]
                 statements.append(
-                    f"UPDATE {fqn} SET {geom_column} = ST_GEOGFROMWKB({geom.asWkb().toHex()}) WHERE {pk_field} = {pk_value};"
+                    f"UPDATE {fqn} SET {geom_column} = ST_GEOGFROMWKB('{geom.asWkb().toHex().data().decode()}') WHERE {pk_field} = {pk_value};"
                 )
         if self.layer_changes[layer.id()].features_removed:
             for featureid in self.layer_changes[layer.id()].features_removed:
@@ -158,8 +168,11 @@ class LayerTracker:
             )
         except Exception as e:
             iface.messageBar().pushMessage(
-                "Error uploading changes: " + str(e), level=Qgis.Critical, duration=5
+                "Error uploading changes: changes could not be made in the upstream table",
+                level=Qgis.Critical,
+                duration=5,
             )
+            error("Error uploading changes: " + str(e))
 
     def disconnect_layer(self, layer):
         for f in self.connected[layer.id()]:

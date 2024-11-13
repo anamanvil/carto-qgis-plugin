@@ -7,7 +7,7 @@ from qgis.PyQt.QtWidgets import QAction
 from qgis.PyQt.QtGui import QIcon
 
 from carto.gui.dataitemprovider import DataItemProvider
-from carto.layers import LayerTracker
+from carto.core.layers import LayerTracker
 
 pluginPath = os.path.dirname(__file__)
 

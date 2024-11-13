@@ -5,6 +5,7 @@ except ImportError:
 import requests
 import json
 from carto.gui.utils import waitcursor
+import uuid
 
 BASE_URL = "https://workspace-gcp-us-east1.app.carto.com"
 SQL_API_URL = "https://gcp-us-east1.api.carto.com"
@@ -51,9 +52,10 @@ class CartoApi(object):
     @waitcursor
     def execute_query(self, connectionname, query):
         url = urljoin(SQL_API_URL, f"v3/sql/{connectionname}/query")
-        print(url)
-        print(connectionname)
-        print(query)
+        query = f"""
+        -- {uuid.uuid4()}
+        {query}
+        """
         response = requests.get(
             url,
             headers={"Authorization": f"Bearer {self.token}"},
@@ -129,7 +131,10 @@ class CartoApi(object):
             if table["type"] == "table"
         ]
 
-    def columns(self, connectionid, databaseid, schemaid, tableid):
+    def table_info(self, connectionid, databaseid, schemaid, tableid):
         return self.get(
             f"connections/{connectionid}/resources/{databaseid}.{schemaid}.{tableid}"
         )
+
+    def import_table_from_file(self, connectionid, fqn, filepaths):
+        pass

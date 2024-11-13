@@ -1,7 +1,6 @@
 import os
 
-from carto.utils import setting, setSetting, MAXROWS, TOKEN
-from qgis.utils import iface
+from carto.core.utils import setting, setSetting, MAXROWS, TOKEN
 from qgis.gui import QgsMessageBar
 
 from qgis.PyQt import uic

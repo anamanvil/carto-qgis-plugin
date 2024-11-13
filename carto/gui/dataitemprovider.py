@@ -1,7 +1,8 @@
 import os
 import sip
+from json2html import json2html
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction
+from qgis.PyQt.QtWidgets import QAction, QDialog
 from qgis.core import (
     QgsDataItemProvider,
     QgsDataCollectionItem,
@@ -9,13 +10,16 @@ from qgis.core import (
     QgsDataProvider,
     QgsProject,
     QgsSettings,
+    Qgis,
+    QgsMapLayer,
+    QgsMessageOutput,
 )
-from qgis.core import Qgis, QgsMapLayer
 from qgis.utils import iface
 
 from carto.core.connection import CartoConnection
 from carto.core.api import CartoApi
-from carto.layers import layer_metadata
+from carto.core.layers import layer_metadata
+from carto.core.utils import setting, TOKEN
 from carto.gui.settingsdialog import SettingsDialog
 from carto.gui.importdialog import ImportDialog
 from carto.gui.downloadfilteredlayerdialog import DownloadFilteredLayerDialog
@@ -23,7 +27,6 @@ from carto.gui.downloadfilteredlayerdialog import DownloadFilteredLayerDialog
 IMGS_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "imgs")
 
 carto_connection = CartoConnection()
-
 
 pluginPath = os.path.dirname(__file__)
 
@@ -90,13 +93,15 @@ class RootCollection(QgsDataCollectionItem):
 
     def logout(self):
         CartoApi.instance().logout()
+        CartoConnection.instance().clear()
         self.refreshConnections()
 
     def open_login_dialog(self):
-        token = QgsSettings().value("carto/token", "")
+        token = setting(TOKEN)
         try:
             CartoApi.instance().login(token)
         except Exception as e:
+            raise
             iface.messageBar().pushMessage(
                 "Login failed",
                 "Please check your token and try again",
@@ -168,48 +173,24 @@ class SchemaItem(QgsDataCollectionItem):
         actions = []
 
         import_action = QAction(QIcon(), "Import...", parent)
-        import_action.triggered.connect(lambda: self.import_layer())
+        import_action.triggered.connect(self.import_layer)
         actions.append(import_action)
 
         return actions
 
     def import_layer(self):
-        dialog = ImportDialog(iface.mainWindow())
-        dialog.exec_()
-        if dialog.layer:
-            layer = dialog.layer
-            tablename = dialog.tablename
-            fqn = (
-                f"{self.schema.database.databaseid}.{self.schema.schemaid}.{tablename}"
+        dialog = ImportDialog(
+            self.schema.database.connection,
+            self.schema.database,
+            self.schema,
+            iface.mainWindow(),
+        )
+        ret = dialog.exec_()
+        if ret == QDialog.Accepted:
+            dialog.schema.import_table(
+                dialog.layer_or_file,
+                dialog.tablename,
             )
-            layerfile = layer
-            if isinstance(layer, QgsMapLayer):
-                isSupported = True  # TODO
-                if isSupported:
-                    layerfile = layer.source()
-                else:
-                    # TODO
-                    pass
-            else:
-                layerfile = layer
-            try:
-                CartoApi.instance().import_layer(
-                    self.schema.database.connection.name, fqn, layerfile
-                )
-                QgsProject.instance().addMapLayer(layer)
-                iface.messageBar().pushMessage(
-                    "Imported",
-                    "The layer has been imported",
-                    level=Qgis.Success,
-                    duration=10,
-                )
-            except Exception as e:
-                iface.messageBar().pushMessage(
-                    "Import failed",
-                    "Please check your layer and try again",
-                    level=Qgis.Warning,
-                    duration=10,
-                )
 
 
 class TableItem(QgsDataItem):
@@ -228,23 +209,35 @@ class TableItem(QgsDataItem):
         actions = []
 
         add_layer_action = QAction(QIcon(), "Add Layer", parent)
-        add_layer_action.triggered.connect(lambda: self.add_layer())
+        add_layer_action.triggered.connect(self.add_layer)
         actions.append(add_layer_action)
 
         add_layer_filtered_action = QAction(
             QIcon(), "Add Layer Using Filter...", parent
         )
-        add_layer_filtered_action.triggered.connect(lambda: self.add_layer_filtered())
+        add_layer_filtered_action.triggered.connect(self.add_layer_filtered)
         actions.append(add_layer_filtered_action)
+
+        table_info_action = QAction(QIcon(), "Table Info...", parent)
+        table_info_action.triggered.connect(self.table_info_action)
+        actions.append(table_info_action)
 
         return actions
 
+    def table_info_action(self):
+        metadata = self.table.table_info()
+        html = json2html.convert(json=metadata)
+        dlg = QgsMessageOutput.createMessageOutput()
+        dlg.setTitle("Table info")
+        dlg.setMessage(html, QgsMessageOutput.MessageHtml)
+        dlg.showMessage()
+
     def add_layer_filtered(self):
-        dlg = DownloadFilteredLayerDialog(iface.mainWindow())
-        dlg.exec_()
-        if dlg.accepted:
-            where = dlg.where
-            self._add_layer(where)
+        dlg = DownloadFilteredLayerDialog(self.table)
+        dlg.show()
+        ret = dlg.exec_()
+        if ret == QDialog.Accepted:
+            self._add_layer(dlg.where)
 
     def add_layer(self):
         self._add_layer(None)

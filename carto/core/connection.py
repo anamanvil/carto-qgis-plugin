@@ -1,8 +1,8 @@
 import os
 from carto.core.api import CartoApi
-from carto.layers import filepath_for_table, save_layer_metadata
+from carto.core.layers import filepath_for_table, save_layer_metadata
+from carto.core.utils import setting, MAXROWS
 
-import json
 from qgis.core import (
     QgsProject,
     QgsVectorLayer,
@@ -14,23 +14,46 @@ from qgis.core import (
     QgsVectorFileWriter,
     QgsApplication,
     QgsSettings,
+    QgsCoordinateReferenceSystem,
+    QgsMapLayer,
+    QgsCoordinateTransform,
+    Qgis,
 )
 from qgis.PyQt.QtCore import QVariant
+
+from qgis.utils import iface
 
 
 class CartoConnection(object):
 
+    __instance = None
+    _connections = None
+
+    @staticmethod
+    def instance():
+        if CartoConnection.__instance is None:
+            CartoConnection()
+        return CartoConnection.__instance
+
     def __init__(self):
-        pass
+        if CartoConnection.__instance is not None:
+            raise Exception("Singleton class")
+
+        CartoConnection.__instance = self
 
     def provider_connections(self):
-        connections = CartoApi.instance().connections()
-        return [
-            ProviderConnection(
-                connection["id"], connection["name"], connection["provider_type"]
-            )
-            for connection in connections
-        ]
+        if self._connections is None:
+            connections = CartoApi.instance().connections()
+            self._connections = [
+                ProviderConnection(
+                    connection["id"], connection["name"], connection["provider_type"]
+                )
+                for connection in connections
+            ]
+        return self._connections
+
+    def clear(self):  # TODO link this to API logout signal
+        self._connections = None
 
 
 class ProviderConnection:
@@ -39,12 +62,16 @@ class ProviderConnection:
         self.provider_type = provider_type
         self.name = name
         self.connectionid = connectionid
+        self._databases = None
 
     def databases(self):
-        databases = CartoApi.instance().databases(self.connectionid)
-        return [
-            Database(database["id"], database["name"], self) for database in databases
-        ]
+        if self._databases is None:
+            databases = CartoApi.instance().databases(self.connectionid)
+            self._databases = [
+                Database(database["id"], database["name"], self)
+                for database in databases
+            ]
+        return self._databases
 
 
 class Database:
@@ -53,12 +80,17 @@ class Database:
         self.databaseid = databaseid
         self.name = name
         self.connection = connection
+        self._schemas = None
 
     def schemas(self):
-        schemas = CartoApi.instance().schemas(
-            self.connection.connectionid, self.databaseid
-        )
-        return [Schema(schema["id"], schema["name"], self) for schema in schemas]
+        if self._schemas is None:
+            schemas = CartoApi.instance().schemas(
+                self.connection.connectionid, self.databaseid
+            )
+            self._schemas = [
+                Schema(schema["id"], schema["name"], self) for schema in schemas
+            ]
+        return self._schemas
 
 
 class Schema:
@@ -67,24 +99,59 @@ class Schema:
         self.schemaid = schemaid
         self.database = database
         self.name = name
+        self._tables = None
 
     def tables(self):
-        tables = CartoApi.instance().tables(
-            self.database.connection.connectionid,
-            self.database.databaseid,
-            self.schemaid,
-        )
-        return [Table(table["id"], table["name"], self) for table in tables]
+        if self._tables is None:
+            tables = CartoApi.instance().tables(
+                self.database.connection.connectionid,
+                self.database.databaseid,
+                self.schemaid,
+            )
+            self._tables = [Table(table["id"], table["name"], self) for table in tables]
+        return self._tables
 
     def can_write(self):
-        sql = f"""
-                CREATE TEMPORARY TABLE __qgis_test_table (id INT64);
+        path = f"{self.database.databaseid}.{self.schemaid}"
+        sql = f"""BEGIN
+                    CREATE OR REPLACE TABLE `{path}.__qgis_test_table` AS (SELECT 1 as id);
+                    DROP TABLE `{path}.__qgis_test_table`;
+                END;
             """
         try:
             CartoApi.instance().execute_query(self.database.connection.name, sql)
             return True
         except Exception as e:
             return False
+
+    def import_table(self, file_or_layer, tablename):
+        if isinstance(file_or_layer, QgsMapLayer):
+            isSupported = True  # TODO
+            if isSupported:
+                filepath = file_or_layer.source()
+            else:
+                # TODO
+                filepath = file_or_layer.source()
+        else:
+            filepath = file_or_layer
+        fqn = f"{self.database.databaseid}.{self.schemaid}.{tablename}"
+        try:
+            CartoApi.instance().import_table_from_file(
+                self.database.connection.name, fqn, filepath
+            )
+            iface.messageBar().pushMessage(
+                "Imported",
+                "The layer has been imported",
+                level=Qgis.Success,
+                duration=10,
+            )
+        except Exception as e:
+            iface.messageBar().pushMessage(
+                "Import failed",
+                "Please check your layer and try again",
+                level=Qgis.Warning,
+                duration=10,
+            )
 
 
 class Table:
@@ -93,14 +160,23 @@ class Table:
         self.tableid = tableid
         self.name = name
         self.schema = schema
+        self._table_info = None
+
+    def table_info(self):
+        if self._table_info is None:
+            self._table_info = CartoApi.instance().table_info(
+                self.schema.database.connection.connectionid,
+                self.schema.database.databaseid,
+                self.schema.schemaid,
+                self.tableid,
+            )
+        return self._table_info
 
     def columns(self):
-        return CartoApi.instance().columns(
-            self.schema.database.connection.connectionid,
-            self.schema.database.databaseid,
-            self.schema.schemaid,
-            self.tableid,
-        )
+        return self.table_info()["schema"]
+
+    def geom_column(self):
+        return self.table_info()["geomField"]
 
     def pk(self):
         sql = f"""
@@ -109,8 +185,7 @@ class Table:
                 FROM
                     `{self.schema.database.databaseid}.{self.schema.schemaid}.INFORMATION_SCHEMA.KEY_COLUMN_USAGE`
                 WHERE
-                    table_name = '{self.tableid}'
-                AND constraint_name LIKE '%PRIMARY%';
+                    table_name = '{self.tableid}';
                 """
         ret = CartoApi.instance().execute_query(
             self.schema.database.connection.name, sql
@@ -124,7 +199,7 @@ class Table:
             self.schema.database.connection.name,
             f"""SELECT * FROM `{self.schema.database.databaseid}.{self.schema.schemaid}.{self.tableid}`
                 {f"WHERE {where}" if where else ""}
-                LIMIT {QgsSettings().value("carto/rowlimit", 1000)};""",
+                LIMIT {setting(MAXROWS) or 1000};""",
         )
 
     def _filepath(self):
@@ -138,6 +213,7 @@ class Table:
     def download(self, where=None):
         data = self.get_rows(where)
 
+        print(data)
         geopackage_file = self._filepath()
 
         rows = data.get("rows", [])
@@ -152,7 +228,7 @@ class Table:
                 fields.append(QgsField(field_name, QVariant.String))
             elif field_type == "integer":
                 fields.append(QgsField(field_name, QVariant.Int))
-            elif field_type == "double":
+            elif field_type in ["double", "number"]:
                 fields.append(QgsField(field_name, QVariant.Double))
             elif field_type == "geometry":
                 geom_field = field_name
@@ -216,6 +292,7 @@ class Table:
             layerOptions=["OVERWRITE=YES"],
         )
         gpkglayer = QgsVectorLayer(geopackage_file, self.name, "ogr")
+        gpkglayer.setCrs(QgsCoordinateReferenceSystem("EPSG:4326"))
 
         layer_metadata = {"pk": self.pk(), "columns": schema, "geom_column": geom_field}
         save_layer_metadata(gpkglayer, layer_metadata)
