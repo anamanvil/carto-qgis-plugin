@@ -18,11 +18,12 @@ from qgis.utils import iface
 
 from carto.core.connection import CartoConnection
 from carto.core.api import CartoApi
-from carto.core.layers import layer_metadata
+from carto.core.layers import layer_metadata, save_layer_metadata
 from carto.core.utils import setting, TOKEN
 from carto.gui.settingsdialog import SettingsDialog
 from carto.gui.importdialog import ImportDialog
 from carto.gui.downloadfilteredlayerdialog import DownloadFilteredLayerDialog
+from carto.gui.selectprimarykeydialog import SelectPrimaryKeyDialog
 
 IMGS_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "imgs")
 
@@ -105,7 +106,6 @@ class RootCollection(QgsDataCollectionItem):
         try:
             CartoApi.instance().login(token)
         except Exception as e:
-            raise
             iface.messageBar().pushMessage(
                 "Login failed",
                 "Please check your token and try again",
@@ -127,7 +127,6 @@ class ConnectionItem(QgsDataCollectionItem):
         QgsDataCollectionItem.__init__(
             self, parent, connection.name, "/Carto/connection" + connection.name
         )
-        print(connection.provider_type)
         if connection.provider_type == "bigquery":
             self.setIcon(bigqueryIcon)
         elif connection.provider_type == "snowflake":
@@ -219,7 +218,6 @@ class TableItem(QgsDataItem):
         )
         self.table = table
         self.setIcon(tableIcon)
-        self.setEnabled(table.size < MAX_TABLE_SIZE)
         self.populate()
 
     def handleDoubleClick(self):
@@ -230,6 +228,7 @@ class TableItem(QgsDataItem):
 
         add_layer_action = QAction(QIcon(), "Add Layer", parent)
         add_layer_action.triggered.connect(self.add_layer)
+        add_layer_action.setEnabled(self.table.size < MAX_TABLE_SIZE)
         actions.append(add_layer_action)
 
         add_layer_filtered_action = QAction(
@@ -265,19 +264,26 @@ class TableItem(QgsDataItem):
     def _add_layer(self, where):
         layer = self.table.download(where)
         QgsProject.instance().addMapLayer(layer)
-        if not self.table.schema.can_write():
+        metadata = layer_metadata(layer)
+        if not metadata["can_write"]:
             iface.messageBar().pushMessage(
                 "Read-only",
                 "No permission to write. Local changes will not be saved to the original table",
                 level=Qgis.Warning,
                 duration=10,
             )
+            return
 
-        metadata = layer_metadata(layer)
         if not metadata["pk"]:
-            iface.messageBar().pushMessage(
-                "Missing PK",
-                "The table has no PK defined. Local changes will not be saved to the original table",
-                level=Qgis.Warning,
-                duration=10,
-            )
+            dialog = SelectPrimaryKeyDialog(layer)
+            dialog.exec_()
+            if dialog.pk:
+                metadata["pk"] = dialog.pk
+                save_layer_metadata(layer, metadata)
+            else:
+                iface.messageBar().pushMessage(
+                    "Missing PK",
+                    "The table has no PK defined. Local changes will not be saved to the original table",
+                    level=Qgis.Warning,
+                    duration=10,
+                )

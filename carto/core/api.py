@@ -66,34 +66,6 @@ class CartoApi(object):
         print(json.dumps(_json))
         return _json
 
-    """
-    def create_job(self, connectionid, query):
-        url = urljoin(BASE_URL, f"v3/{connectionid}/job")
-        data = {"q": query}
-        response = requests.post(
-            url, headers={"Authorization": f"Bearer {self.token}"}, json=data
-        )
-        response.raise_for_status()
-        return response.json()
-
-    def job_status(self, connectionid, jobid):
-        url = urljoin(BASE_URL, f"v3/{connectionid}/job/{jobid}")
-        response = requests.get(
-            url, headers={"Authorization": f"Bearer {self.token}"}
-        )
-        response.raise_for_status()
-        return response.json()
-
-    def execute_job_and_wait(self, connectionid, query):
-        job = self.create_job(connectionid, query)
-        jobid = job["job_id"]
-        while True:
-            status = self.job_status(connectionid, jobid)
-            if status["status"] == "done":
-                break
-        return status
-    """
-
     def connections(self):
         connections = self.get("connections")
         return [

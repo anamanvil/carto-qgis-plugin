@@ -24,6 +24,7 @@ from qgis.PyQt.QtCore import Qt
 
 from carto.core.api import CartoApi
 from carto.core.logging import error
+from carto.core.utils import quote_for_provider, prepare_multipart_sql
 
 
 pluginPath = os.path.dirname(__file__)
@@ -102,20 +103,44 @@ class LayerTracker:
         self.schema_has_changed = False
 
     def upload_changes(self, layer):
+        if not can_write(layer):
+            iface.messageBar().pushMessage(
+                "No permission to write. Local changes will not be saved to the original table",
+                level=Qgis.Warning,
+                duration=5,
+            )
+            return
+        metadata = layer_metadata(layer)
+
         if self.schema_has_changed:
+            metadata["schema_changed"] = True
+            save_layer_metadata(layer, metadata)
+
+        if metadata["schema_changed"]:
             iface.messageBar().pushMessage(
                 "Table schema has changed: changes will not be uploaded upstream",
                 level=Qgis.Warning,
                 duration=5,
             )
             return
-            # TODO: handle schema changes in previous edits, comparing with original schema
         statements = []
-        fqn = f"`{fqn_from_layer(layer)}`"
-        pk_field = pk_from_layer(layer)
+        pk_field = metadata["pk"]
+        provider_type = metadata["provider_type"]
+        geom_column = metadata["geom_column"]
         if not pk_field:
+            iface.messageBar().pushMessage(
+                "Layer has no Primary Key: changes will not be uploaded upstream",
+                level=Qgis.Warning,
+                duration=5,
+            )
             return
-        print(pk_field)
+        fqn = fqn_from_layer(layer), provider_type
+        quoted_fqn = quote_for_provider(fqn, provider_type)
+        wkb_func = (
+            "ST_GEOGFROMWKB"
+            if provider_type in ["bigquery", "snowflake"]
+            else "ST_GEOMFROMWKB"
+        )
         geom_column = geom_column_from_layer(layer)
         if self.layer_changes[layer.id()].attributes_changed:
             for featureid, change in self.layer_changes[
@@ -123,40 +148,49 @@ class LayerTracker:
             ].attributes_changed.items():
                 pk_value = layer.getFeature(featureid)[pk_field]
                 for field_idx, value in change.items():
-                    field_name = layer.fields().at(field_idx).name()
+                    field = layer.fields().at(field_idx)
+                    field_name = field.name()
+                    value = value if field.isNumeric() else f"'{value}'"
                     statements.append(
-                        f"UPDATE {fqn} SET {field_name} = {value} WHERE {pk_field} = {pk_value};"
+                        f"UPDATE {quoted_fqn} SET {field_name} = {value} WHERE {pk_field} = {pk_value};"
                     )
         if self.layer_changes[layer.id()].geoms_changed:
             for featureid, geom in self.layer_changes[layer.id()].geoms_changed.items():
                 pk_value = layer.getFeature(featureid)[pk_field]
                 statements.append(
-                    f"UPDATE {fqn} SET {geom_column} = ST_GEOGFROMWKB('{geom.asWkb().toHex().data().decode()}') WHERE {pk_field} = {pk_value};"
+                    f"UPDATE {quoted_fqn} SET {geom_column} = {wkb_func}('{geom.asWkb().toHex().data().decode()}') WHERE {pk_field} = {pk_value};"
                 )
         if self.layer_changes[layer.id()].features_removed:
             for featureid in self.layer_changes[layer.id()].features_removed:
                 feature = layer.getFeature(featureid)
                 pk_value = feature[pk_field]
-                statements.append(f"DELETE FROM {fqn} WHERE {pk_field} = {pk_value};")
+                statements.append(
+                    f"DELETE FROM {quoted_fqn} WHERE {pk_field} = {pk_value};"
+                )
         print(self.layer_changes[layer.id()].features_added)
         if self.layer_changes[layer.id()].features_added:
             for feature in self.layer_changes[layer.id()].features_added:
                 fields = []
                 values = []
-                for field, value in feature.items():
-                    fields.append(field)
+                if geom_column is not None:
+                    geom = feature.geometry()
+                    fields.append(geom_column)
+                    values.append(
+                        f"{wkb_func}('{geom.asWkb().toHex().data().decode()}')"
+                    )
+                for i in range(feature.fields().count()):
+                    field = feature.fields().at(i)
+                    field_name = field.name()
+                    value = feature[field.name()]
+                    value = value if field.isNumeric() else f"'{value}'"
+                    fields.append(field_name)
                     values.append(value)
                 statements.append(
                     f"INSERT INTO {fqn} ({','.join(fields)}) VALUES ({','.join(values)});"
                 )
         connection = connection_from_layer(layer)
         try:
-            sql = "\n".join(statements)
-            sql = f"""
-                    BEGIN
-                        {sql}
-                    END;
-                """
+            sql = prepare_multipart_sql(statements, provider_type, fqn)
             CartoApi.instance().execute_query(connection, sql)
             iface.messageBar().pushMessage(
                 "Layer changes uploaded", level=Qgis.Success, duration=5
@@ -226,11 +260,26 @@ def save_layer_metadata(layer, metadata):
         json.dump(metadata, f)
 
 
+def was_schema_changed(layer):
+    metadata = layer_metadata(layer)
+    return metadata["schema_changed"]
+
+
 def pk_from_layer(layer):
     metadata = layer_metadata(layer)
     return metadata["pk"]
 
 
+def can_write(layer):
+    metadata = layer_metadata(layer)
+    return metadata["can_write"]
+
+
 def geom_column_from_layer(layer):
     metadata = layer_metadata(layer)
     return metadata["geom_column"]
+
+
+def provider_type_from_layer(layer):
+    metadata = layer_metadata(layer)
+    return metadata["provider_type"]

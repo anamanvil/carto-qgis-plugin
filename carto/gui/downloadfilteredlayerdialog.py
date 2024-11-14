@@ -66,7 +66,7 @@ class DownloadFilteredLayerDialog(BASE, WIDGET):
                 f"ST_INTERSECTS({geom_column}, ST_GEOGFROMTEXT('{rectangle4326.asWktPolygon()}'))"
             )
         elif self.grpWhereFilter.isChecked():
-            statements.append(self.txtWhere.currentText())
+            statements.append(self.txtWhere.text())
         else:
             self.bar.pushMessage("Please select a filter", Qgis.Warning, duration=5)
             return

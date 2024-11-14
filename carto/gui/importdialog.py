@@ -66,7 +66,7 @@ class ImportDialog(BASE, WIDGET):
         self.comboSchema.addItems([schema.name for schema in database.schemas()])
 
     def okClicked(self):
-        self.tablename = self.txtTablename.currentText()
+        self.tablename = self.txtTablename.text()
         if not self.tablename:
             self.bar.pushMessage("Table name is required", Qgis.Warning, duration=5)
             return
