@@ -208,7 +208,7 @@ class SchemaItem(QgsDataCollectionItem):
             )
 
 
-MAX_TABLE_SIZE = 1000000
+MAX_TABLE_SIZE = 10
 
 
 class TableItem(QgsDataItem):
@@ -275,7 +275,8 @@ class TableItem(QgsDataItem):
             return
 
         if not metadata["pk"]:
-            dialog = SelectPrimaryKeyDialog(layer)
+            columns = [c["name"] for c in metadata["columns"]]
+            dialog = SelectPrimaryKeyDialog(columns)
             dialog.exec_()
             if dialog.pk:
                 metadata["pk"] = dialog.pk

@@ -134,7 +134,7 @@ class LayerTracker:
                 duration=5,
             )
             return
-        fqn = fqn_from_layer(layer), provider_type
+        fqn = fqn_from_layer(layer)
         quoted_fqn = quote_for_provider(fqn, provider_type)
         wkb_func = (
             "ST_GEOGFROMWKB"

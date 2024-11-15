@@ -14,20 +14,18 @@ WIDGET, BASE = uic.loadUiType(
 
 
 class SelectPrimaryKeyDialog(BASE, WIDGET):
-    def __init__(self, table, parent=None):
+    def __init__(self, columns, parent=None):
         super(QDialog, self).__init__(parent)
         self.setupUi(self)
-        self.table = table
 
         self.buttonBox.accepted.connect(self.okClicked)
         self.buttonBox.rejected.connect(self.reject)
 
-        self.initGui(table)
+        self.initGui(columns)
 
         self.pk = None
 
-    def initGui(self, table):
-        columns = [field.name() for field in table.fields()]
+    def initGui(self, columns):
         self.comboPK.addItems(columns)
 
     def okClicked(self):

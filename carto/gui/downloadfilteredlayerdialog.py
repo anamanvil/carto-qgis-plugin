@@ -67,8 +67,16 @@ class DownloadFilteredLayerDialog(BASE, WIDGET):
             )
         elif self.grpWhereFilter.isChecked():
             statements.append(self.txtWhere.text())
-        else:
+        elif not self.grpLimit.isChecked():
             self.bar.pushMessage("Please select a filter", Qgis.Warning, duration=5)
             return
         self.where = " AND ".join(statements)
+        if self.grpLimit.isChecked():
+            limit = self.txtLimit.text()
+            if not limit:
+                self.bar.pushMessage(
+                    "Maximum number of rows is required", Qgis.Warning, duration=5
+                )
+                return
+            self.where += f" LIMIT {limit}"
         self.accept()

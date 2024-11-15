@@ -51,6 +51,7 @@ class CartoApi(object):
 
     @waitcursor
     def execute_query(self, connectionname, query):
+        print(query)
         url = urljoin(SQL_API_URL, f"v3/sql/{connectionname}/query")
         query = f"""
         -- {uuid.uuid4()}
@@ -63,7 +64,6 @@ class CartoApi(object):
         )
         response.raise_for_status()
         _json = response.json()
-        print(json.dumps(_json))
         return _json
 
     def connections(self):

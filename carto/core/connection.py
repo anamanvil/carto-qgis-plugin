@@ -1,7 +1,13 @@
 import os
 from carto.core.api import CartoApi
 from carto.core.layers import filepath_for_table, save_layer_metadata
-from carto.core.utils import setting, MAXROWS, download_file, quote_for_provider
+from carto.core.utils import (
+    setting,
+    MAXROWS,
+    download_file,
+    quote_for_provider,
+    prepare_multipart_sql,
+)
 from carto.gui.utils import waitcursor
 
 from qgis.core import (
@@ -182,15 +188,20 @@ class Schema:
                 f"{self.database.databaseid}.{self.schemaid}.__qgis_test_table",
                 self.database.connection.provider_type,
             )
-            sql = f"""BEGIN
-                        CREATE OR REPLACE TABLE {fqn} AS (SELECT 1 AS id);
-                        DROP TABLE {fqn};
-                    END;
+            sql = f"""
+                DROP TABLE IF EXISTS {fqn};
+                CREATE TABLE {fqn} AS (SELECT 1 AS id);
+                DROP TABLE {fqn};
                 """
+            sql = prepare_multipart_sql(
+                [sql], self.database.connection.provider_type, fqn
+            )
+            print(sql)
             try:
                 CartoApi.instance().execute_query(self.database.connection.name, sql)
                 self._can_write = True
             except Exception as e:
+                print(e)
                 self._can_write = False
         return self._can_write
 
@@ -292,7 +303,7 @@ class Table:
                     WHERE
                         table_name = '{self.tableid}'
                     AND
-                        constraint_type = 'PRIMARY KEY';
+                        constraint_type = 'PRIMARY KEY'
                     AND
                         table_schema = '{self.schema.schemaid}';
                     """
@@ -313,8 +324,7 @@ class Table:
         return CartoApi.instance().execute_query(
             self.schema.database.connection.name,
             f"""SELECT * FROM {fqn}
-                {f"WHERE {where}" if where else ""}
-                LIMIT {setting(MAXROWS) or 1000};""",
+                {f"WHERE {where}" if where else ""};""",
         )
 
     def _filepath(self):
@@ -340,10 +350,10 @@ class Table:
             quoted_fqn = quote_for_provider(
                 fqn, self.schema.database.connection.provider_type
             )
-            query = f"SELECT * FROM {quoted_fqn} WHERE {where}"
+            query = f"{quoted_fqn} WHERE {where}"
         ret = CartoApi.instance().execute_query(
             self.schema.database.connection.name,
-            f"CALL cartobq.us.EXPORT_WITH_GDAL('{query}','GPKG',NULL,'{self.tableid}');",
+            f"CALL cartobq.us.EXPORT_WITH_GDAL('''{query}''','GPKG',NULL,'{self.tableid}');",
         )
         url = ret["rows"][0]["result"]
         geopackage_file = self._filepath()

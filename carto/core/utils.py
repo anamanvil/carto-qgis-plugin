@@ -34,11 +34,12 @@ def download_file(url, filename):
 def quote_for_provider(value, provider_type):
     if provider_type == "bigquery":
         return f"`{value}`"
-    elif provider_type == "postgres":
-        return f'"{value}"'
-    elif provider_type == "redshift":
-        return f'"{value}"'
-    elif provider_type == "snowflake":
+    elif provider_type in ["postgres", "redshift"]:
+        parts = value.split(".")
+        if len(parts) == 3:
+            return f""""{parts[0].replace('"', '')}".{parts[1]}.{parts[2]}"""
+        else:
+            return value
         return f'"{value}"'
     elif provider_type == "databricks":
         return ".".join([f"`{v}`" for v in value.split(".")])
@@ -71,7 +72,7 @@ def prepare_multipart_sql(statements, provider, fqn):
                 """
     else:
         return f"""
-            BEGIN;
+            BEGIN
                 {joined}
             END;
             """
