@@ -66,8 +66,9 @@ class DataItemProvider(QgsDataItemProvider):
 class RootCollection(QgsDataCollectionItem):
 
     def __init__(self):
-        QgsDataCollectionItem.__init__(self, None, "Carto", "/Carto")
+        QgsDataCollectionItem.__init__(self, None, "CARTO", "/Carto")
         self.setIcon(cartoIcon)
+        CartoConnection.instance().connections_changed.connect(self.refreshConnections)
 
     def createChildren(self):
         children = []
@@ -85,7 +86,7 @@ class RootCollection(QgsDataCollectionItem):
             actions.append(logout_action)
         else:
             login_action = QAction(QIcon(), "Log In...", parent)
-            login_action.triggered.connect(self.open_login_dialog)
+            login_action.triggered.connect(self.login)
             actions.append(login_action)
         settings_action = QAction(QIcon(), "Settings...", parent)
         settings_action.triggered.connect(self.show_settings)
@@ -98,28 +99,9 @@ class RootCollection(QgsDataCollectionItem):
 
     def logout(self):
         CartoApi.instance().logout()
-        CartoConnection.instance().clear()
-        self.refreshConnections()
 
-    def open_login_dialog(self):
-        token = setting(TOKEN)
-        try:
-            CartoApi.instance().login(token)
-        except Exception as e:
-            iface.messageBar().pushMessage(
-                "Login failed",
-                "Please check your token and try again",
-                level=Qgis.Warning,
-                duration=10,
-            )
-        else:
-            iface.messageBar().pushMessage(
-                "Login successful",
-                "You are now logged in",
-                level=Qgis.Success,
-                duration=10,
-            )
-            self.refreshConnections()
+    def login(self):
+        CartoApi.instance().login()
 
 
 class ConnectionItem(QgsDataCollectionItem):

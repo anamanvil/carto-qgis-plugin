@@ -11,7 +11,6 @@ from carto.core.utils import (
 from carto.gui.utils import waitcursor
 
 from qgis.core import (
-    QgsProject,
     QgsVectorLayer,
     QgsFeature,
     QgsField,
@@ -19,34 +18,33 @@ from qgis.core import (
     QgsGeometry,
     QgsPointXY,
     QgsVectorFileWriter,
-    QgsApplication,
-    QgsSettings,
     QgsCoordinateReferenceSystem,
     QgsMapLayer,
-    QgsCoordinateTransform,
     Qgis,
 )
-from qgis.PyQt.QtCore import QVariant
+from qgis.PyQt.QtCore import QVariant, QObject, pyqtSignal
 
 from qgis.utils import iface
 
 
-class CartoConnection(object):
+class CartoConnection(QObject):
 
     __instance = None
     _connections = None
 
+    connections_changed = pyqtSignal()
+
     @staticmethod
     def instance():
         if CartoConnection.__instance is None:
-            CartoConnection()
+            CartoConnection.__instance = CartoConnection()
         return CartoConnection.__instance
 
     def __init__(self):
+        super().__init__()
         if CartoConnection.__instance is not None:
             raise Exception("Singleton class")
-
-        CartoConnection.__instance = self
+        CartoApi.instance().logged_out.connect(self.clear)
 
     def provider_connections(self):
         if self._connections is None:
@@ -57,10 +55,12 @@ class CartoConnection(object):
                 )
                 for connection in connections
             ]
+        self.connections_changed.emit()
         return self._connections
 
-    def clear(self):  # TODO link this to API logout signal
+    def clear(self):
         self._connections = None
+        self.connections_changed.emit()
 
 
 class ProviderConnection:

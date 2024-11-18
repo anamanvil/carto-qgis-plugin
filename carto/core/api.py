@@ -3,36 +3,79 @@ try:
 except ImportError:
     from urlparse import urljoin
 import requests
-import json
-from carto.gui.utils import waitcursor
 import uuid
+from qgis.PyQt.QtCore import pyqtSignal, QObject
+from qgis.PyQt.QtWidgets import QDialog, QAction
+from qgis.PyQt.QtGui import QIcon
+from qgis.utils import iface
+from qgis.core import Qgis
+from carto.gui.utils import waitcursor
+from carto.gui.authorizedialog import AuthorizeDialog
+from carto.core.utils import setting, TOKEN
+import os
 
 BASE_URL = "https://workspace-gcp-us-east1.app.carto.com"
 SQL_API_URL = "https://gcp-us-east1.api.carto.com"
 
 
-class CartoApi(object):
+class CartoApi(QObject):
+
     __instance = None
     token = None
+
+    logged_in = pyqtSignal()
+    logged_out = pyqtSignal()
 
     @staticmethod
     def instance():
         if CartoApi.__instance is None:
-            CartoApi()
+            CartoApi.__instance = CartoApi()
         return CartoApi.__instance
 
     def __init__(self):
+        super().__init__()
         if CartoApi.__instance is not None:
             raise Exception("Singleton class")
 
-        CartoApi.__instance = self
+        self._login_action = QAction("Log in...")
+        # self._login_action.setIcon(CARTO_ICON)
+        self._login_action.triggered.connect(self.login)
 
-    def login(self, token):
-        self.token = token
-        self.get("https://accounts.app.carto.com/users/me")
+    def login(self):
+        dialog = AuthorizeDialog(iface.mainWindow())
+        dialog.exec_()
+        if dialog.result() == QDialog.Accepted:
+            try:
+                self.token = setting(TOKEN)
+                self.get("https://accounts.app.carto.com/users/me")
+                self._login_action.setText("Log out")
+                self._login_action.triggered.disconnect(self.login)
+                self._login_action.triggered.connect(self.logout)
+                self.logged_in.emit()
+            except Exception:
+                iface.messageBar().pushMessage(
+                    "Login failed",
+                    "Please check your token and try again",
+                    level=Qgis.Warning,
+                    duration=10,
+                )
+            else:
+                iface.messageBar().pushMessage(
+                    "Login successful",
+                    "You are now logged in",
+                    level=Qgis.Success,
+                    duration=10,
+                )
 
     def logout(self):
         self.token = None
+        self._login_action.setText("Log in...")
+        self._login_action.triggered.disconnect(self.logout)
+        self._login_action.triggered.connect(self.login)
+        self.logged_out.emit()
+
+    def login_action(self):
+        return self._login_action
 
     def is_logged_in(self):
         return self.token is not None
