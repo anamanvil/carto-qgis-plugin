@@ -9,9 +9,8 @@ from qgis.core import (
     QgsDataItem,
     QgsDataProvider,
     QgsProject,
-    QgsSettings,
     Qgis,
-    QgsMapLayer,
+    QgsVectorTileLayer,
     QgsMessageOutput,
 )
 from qgis.utils import iface
@@ -73,15 +72,18 @@ class RootCollection(QgsDataCollectionItem):
 
     def createChildren(self):
         children = []
-        connections = carto_connection.provider_connections()
-        for connection in connections:
-            item = ConnectionItem(self, connection)
-            children.append(item)
+        basemaps = BasemapsCollection()
+        children.append(basemaps)
+        if CartoApi.instance().is_logged_in():
+            connections = carto_connection.provider_connections()
+            for connection in connections:
+                item = ConnectionItem(self, connection)
+                children.append(item)
         return children
 
     def actions(self, parent):
-        return [AUTHORIZATION_MANAGER.login_action]
-        actions = []
+        actions = [AUTHORIZATION_MANAGER.login_action]
+        """
         if CartoApi.instance().is_logged_in():
             logout_action = QAction(QIcon(), "Log Out", parent)
             logout_action.triggered.connect(self.logout)
@@ -90,6 +92,7 @@ class RootCollection(QgsDataCollectionItem):
             login_action = QAction(QIcon(), "Log In...", parent)
             login_action.triggered.connect(self.login)
             actions.append(login_action)
+        """
         settings_action = QAction(QIcon(), "Settings...", parent)
         settings_action.triggered.connect(self.show_settings)
         actions.append(settings_action)
@@ -104,6 +107,59 @@ class RootCollection(QgsDataCollectionItem):
 
     def login(self):
         CartoApi.instance().login()
+
+
+BASEMAP_STYLES = {
+    "Positron": "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+    "Dark Matter": "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+    "Voyager": "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
+}
+BASEMAP_URL = (
+    "https://tiles-a.basemaps.cartocdn.com/vectortiles/carto.streets/v1/{z}/{x}/{y}.mvt"
+)
+
+
+class BasemapsCollection(QgsDataCollectionItem):
+    def __init__(self):
+        QgsDataCollectionItem.__init__(self, None, "Basemaps", "/Basemaps")
+        self.setIcon(cartoIcon)
+
+    def createChildren(self):
+        children = []
+        for name, url in BASEMAP_STYLES.items():
+            item = BasemapItem(self, name, BASEMAP_URL, url)
+            children.append(item)
+        return children
+
+
+class BasemapItem(QgsDataItem):
+    def __init__(self, parent, name, url, style):
+        QgsDataItem.__init__(
+            self, QgsDataItem.Custom, parent, name, "Carto/basemaps/" + name
+        )
+        self.setIcon(cartoIcon)
+        self.url = url
+        self.style = style
+        self.name = name
+        self.populate()
+
+    def handleDoubleClick(self):
+        return True
+
+    def actions(self, parent):
+        actions = []
+
+        add_layer_action = QAction(QIcon(), "Add Layer", parent)
+        add_layer_action.triggered.connect(self.add_layer)
+        actions.append(add_layer_action)
+
+        return actions
+
+    def add_layer(self):
+        uri = f"styleUrl={self.style}&type=xyz&url={self.url}&zmax=14&zmin=0"
+        layer = QgsVectorTileLayer(uri, self.name)
+        layer.loadDefaultStyle()
+        QgsProject.instance().addMapLayer(layer)
 
 
 class ConnectionItem(QgsDataCollectionItem):

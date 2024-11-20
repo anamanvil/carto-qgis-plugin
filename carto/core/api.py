@@ -84,9 +84,6 @@ class CartoApi(QObject):
         response.raise_for_status()
         return response.json()
 
-    def post(self, endpoint, data):
-        pass
-
     def execute_query(self, connectionname, query):
         print(query)
         url = urljoin(SQL_API_URL, f"v3/sql/{connectionname}/query")

@@ -64,7 +64,7 @@ class CartoConnection(QObject):
     def _auth_status_changed(self, auth_status):
         if auth_status == AuthState.NotAuthorized:
             self._connections = None
-            self.connections_changed.emit()
+        self.connections_changed.emit()
 
 
 class ProviderConnection:
@@ -205,12 +205,10 @@ class Schema:
             sql = prepare_multipart_sql(
                 [sql], self.database.connection.provider_type, fqn
             )
-            print(sql)
             try:
                 CartoApi.instance().execute_query(self.database.connection.name, sql)
                 self._can_write = True
             except Exception as e:
-                print(e)
                 self._can_write = False
         return self._can_write
 

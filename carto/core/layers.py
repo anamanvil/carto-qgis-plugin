@@ -158,7 +158,6 @@ class LayerTracker:
                 statements.append(
                     f"DELETE FROM {quoted_fqn} WHERE {pk_field} = {pk_value};"
                 )
-        print(self.layer_changes[layer.id()].features_added)
         if self.layer_changes[layer.id()].features_added:
             for feature in self.layer_changes[layer.id()].features_added:
                 fields = []
