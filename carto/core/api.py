@@ -6,25 +6,29 @@ import requests
 import uuid
 from qgis.PyQt.QtCore import pyqtSignal, QObject
 from qgis.PyQt.QtWidgets import QDialog, QAction
-from qgis.PyQt.QtGui import QIcon
 from qgis.utils import iface
 from qgis.core import Qgis
 from carto.gui.utils import waitcursor
 from carto.gui.authorizedialog import AuthorizeDialog
-from carto.core.utils import setting, TOKEN
+from carto.core.utils import (
+    setting,
+    TOKEN,
+    provider_data_type_from_qgis_type,
+    quote_for_provider,
+    prepare_geo_value_for_provider,
+)
 import os
+
 
 BASE_URL = "https://workspace-gcp-us-east1.app.carto.com"
 SQL_API_URL = "https://gcp-us-east1.api.carto.com"
+USER_URL = "https://accounts.app.carto.com/users/me"
 
 
 class CartoApi(QObject):
 
     __instance = None
     token = None
-
-    logged_in = pyqtSignal()
-    logged_out = pyqtSignal()
 
     @staticmethod
     def instance():
@@ -37,21 +41,13 @@ class CartoApi(QObject):
         if CartoApi.__instance is not None:
             raise Exception("Singleton class")
 
-        self._login_action = QAction("Log in...")
-        # self._login_action.setIcon(CARTO_ICON)
-        self._login_action.triggered.connect(self.login)
-
     def login(self):
         dialog = AuthorizeDialog(iface.mainWindow())
         dialog.exec_()
         if dialog.result() == QDialog.Accepted:
             try:
                 self.token = setting(TOKEN)
-                self.get("https://accounts.app.carto.com/users/me")
-                self._login_action.setText("Log out")
-                self._login_action.triggered.disconnect(self.login)
-                self._login_action.triggered.connect(self.logout)
-                self.logged_in.emit()
+                self.get_json("https://accounts.app.carto.com/users/me")
             except Exception:
                 iface.messageBar().pushMessage(
                     "Login failed",
@@ -67,32 +63,30 @@ class CartoApi(QObject):
                     duration=10,
                 )
 
-    def logout(self):
-        self.token = None
-        self._login_action.setText("Log in...")
-        self._login_action.triggered.disconnect(self.logout)
-        self._login_action.triggered.connect(self.login)
-        self.logged_out.emit()
+    def set_token(self, token):
+        self.token = token
 
-    def login_action(self):
-        return self._login_action
+    def user(self):
+        return self.get(USER_URL)
 
     def is_logged_in(self):
         return self.token is not None
 
-    @waitcursor
     def get(self, endpoint, params=None):
         url = urljoin(BASE_URL, endpoint)
         response = requests.get(
             url, headers={"Authorization": f"Bearer {self.token}"}, params=params
         )
+        return response
+
+    def get_json(self, endpoint, params=None):
+        response = self.get(endpoint, params)
         response.raise_for_status()
         return response.json()
 
     def post(self, endpoint, data):
         pass
 
-    @waitcursor
     def execute_query(self, connectionname, query):
         print(query)
         url = urljoin(SQL_API_URL, f"v3/sql/{connectionname}/query")
@@ -109,8 +103,20 @@ class CartoApi(QObject):
         _json = response.json()
         return _json
 
+    def execute_query_post(self, connectionname, query):
+        print(query)
+        url = urljoin(SQL_API_URL, f"v3/sql/{connectionname}/query")
+        response = requests.post(
+            url,
+            headers={"Authorization": f"Bearer {self.token}"},
+            data={"q": query},
+        )
+        response.raise_for_status()
+        _json = response.json()
+        return _json
+
     def connections(self):
-        connections = self.get("connections")
+        connections = self.get_json("connections")
         return [
             {
                 "id": connection["id"],
@@ -121,14 +127,14 @@ class CartoApi(QObject):
         ]
 
     def databases(self, connectionid):
-        databases = self.get(f"connections/{connectionid}/resources")["children"]
+        databases = self.get_json(f"connections/{connectionid}/resources")["children"]
         return [
             {"id": database["id"].split(".")[-1], "name": database["name"]}
             for database in databases
         ]
 
     def schemas(self, connectionid, databaseid):
-        schemas = self.get(f"connections/{connectionid}/resources/{databaseid}")[
+        schemas = self.get_json(f"connections/{connectionid}/resources/{databaseid}")[
             "children"
         ]
         return [
@@ -137,7 +143,7 @@ class CartoApi(QObject):
         ]
 
     def tables(self, connectionid, databaseid, schemaid):
-        tables = self.get(
+        tables = self.get_json(
             f"connections/{connectionid}/resources/{databaseid}.{schemaid}"
         )["children"]
         return [
@@ -147,9 +153,6 @@ class CartoApi(QObject):
         ]
 
     def table_info(self, connectionid, databaseid, schemaid, tableid):
-        return self.get(
+        return self.get_json(
             f"connections/{connectionid}/resources/{databaseid}.{schemaid}.{tableid}"
         )
-
-    def import_table_from_file(self, connectionid, fqn, filepaths):
-        pass

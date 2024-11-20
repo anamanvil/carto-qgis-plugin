@@ -3,7 +3,7 @@ import requests
 import shutil
 from carto.gui.utils import waitcursor
 
-from qgis.PyQt.QtCore import QSettings
+from qgis.PyQt.QtCore import QSettings, QVariant
 
 NAMESPACE = "carto"
 MAXROWS = "maxrows"
@@ -40,7 +40,6 @@ def quote_for_provider(value, provider_type):
             return f""""{parts[0].replace('"', '')}".{parts[1]}.{parts[2]}"""
         else:
             return value
-        return f'"{value}"'
     elif provider_type == "databricks":
         return ".".join([f"`{v}`" for v in value.split(".")])
     return value
@@ -76,3 +75,72 @@ def prepare_multipart_sql(statements, provider, fqn):
                 {joined}
             END;
             """
+
+
+def provider_data_type_from_qgis_type(qgis_type, provider):
+    provider = provider.lower()
+
+    type_mapping = {
+        "bigquery": {
+            QVariant.String: "STRING",
+            "text": "STRING",
+            QVariant.Int: "INT64",
+            QVariant.LongLong: "INT64",
+            QVariant.Double: "FLOAT64",
+            QVariant.Bool: "BOOL",
+            "geometry": "GEOGRAPHY",
+        },
+        "snowflake": {
+            QVariant.String: "VARCHAR",
+            QVariant.Int: "NUMBER(38,0)",
+            QVariant.LongLong: "NUMBER(38,0)",
+            QVariant.Double: "FLOAT",
+            QVariant.Bool: "BOOL",
+            "geometry": "GEOGRAPHY",
+        },
+        "redshift": {
+            QVariant.String: "VARCHAR(MAX)",
+            QVariant.Int: "BIGINT",
+            QVariant.LongLong: "BIGINT",
+            QVariant.Double: "DOUBLE PRECISION",
+            QVariant.Bool: "BOOLEAN",
+            "geometry": "GEOMETRY",
+        },
+        "postgres": {
+            QVariant.String: "TEXT",
+            QVariant.Int: "INTEGER",
+            QVariant.LongLong: "BIGINT",
+            QVariant.Double: "DOUBLE PRECISION",
+            QVariant.Bool: "BOOLEAN",
+            "geometry": "GEOMETRY",
+        },
+        "databricks": {
+            QVariant.String: "VARCHAR",
+            QVariant.Int: "BIGINT",
+            QVariant.LongLong: "BIGINT",
+            QVariant.Double: "DOUBLE",
+            QVariant.Bool: "BOOLEAN",
+            "geometry": "STRING",
+        },
+    }
+
+    mapping = type_mapping.get(provider)
+
+    if not mapping:
+        raise ValueError(f"Unsupported provider: {provider}")
+
+    db_type = mapping.get(qgis_type, "STRING")
+    return db_type
+
+
+def prepare_geo_value_for_provider(provider_type, geom):
+    if provider_type == "databricks":
+        return f"'{geom.asWkt()}'"
+    else:
+        wkb = geom.asWkb().toHex().data().decode()
+        wkb_func = (
+            "ST_GEOGFROMWKB"
+            if provider_type in ["bigquery", "snowflake"]
+            else "ST_GEOMFROMWKB"
+        )
+        return f"{wkb_func}('{wkb}')"

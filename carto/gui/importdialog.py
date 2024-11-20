@@ -66,10 +66,6 @@ class ImportDialog(BASE, WIDGET):
         self.comboSchema.addItems([schema.name for schema in database.schemas()])
 
     def okClicked(self):
-        self.tablename = self.txtTablename.text()
-        if not self.tablename:
-            self.bar.pushMessage("Table name is required", Qgis.Warning, duration=5)
-            return
         if self.tabWidget.currentIndex() == 0:
             self.file_or_layer = self.comboLayer.currentLayer()
         else:
@@ -77,6 +73,12 @@ class ImportDialog(BASE, WIDGET):
         if not self.file_or_layer:
             self.bar.pushMessage("File or layer is required", Qgis.Warning, duration=5)
             return
+        self.tablename = self.txtTablename.text()
+        if not self.tablename:
+            if self.tabWidget.currentIndex() == 0:
+                self.tablename = self.comboLayer.currentLayer().name()
+            else:
+                self.tablename = os.path.basename(self.txtFile.filePath()).split(".")[0]
         self.schema = (
             CartoConnection.instance()
             .provider_connections()[self.comboConnection.currentIndex()]

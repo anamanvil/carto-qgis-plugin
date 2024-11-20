@@ -2,13 +2,14 @@ import os
 from carto.core.api import CartoApi
 from carto.core.layers import filepath_for_table, save_layer_metadata
 from carto.core.utils import (
-    setting,
-    MAXROWS,
     download_file,
     quote_for_provider,
     prepare_multipart_sql,
 )
 from carto.gui.utils import waitcursor
+from carto.core.importlayertask import ImportLayerTask
+from carto.gui.authorization_manager import AUTHORIZATION_MANAGER
+from carto.core.enums import AuthState
 
 from qgis.core import (
     QgsVectorLayer,
@@ -21,8 +22,9 @@ from qgis.core import (
     QgsCoordinateReferenceSystem,
     QgsMapLayer,
     Qgis,
+    QgsApplication,
 )
-from qgis.PyQt.QtCore import QVariant, QObject, pyqtSignal
+from qgis.PyQt.QtCore import QVariant, QObject, pyqtSignal, QCoreApplication
 
 from qgis.utils import iface
 
@@ -44,8 +46,9 @@ class CartoConnection(QObject):
         super().__init__()
         if CartoConnection.__instance is not None:
             raise Exception("Singleton class")
-        CartoApi.instance().logged_out.connect(self.clear)
+        AUTHORIZATION_MANAGER.status_changed.connect(self._auth_status_changed)
 
+    @waitcursor
     def provider_connections(self):
         if self._connections is None:
             connections = CartoApi.instance().connections()
@@ -58,9 +61,10 @@ class CartoConnection(QObject):
         self.connections_changed.emit()
         return self._connections
 
-    def clear(self):
-        self._connections = None
-        self.connections_changed.emit()
+    def _auth_status_changed(self, auth_status):
+        if auth_status == AuthState.NotAuthorized:
+            self._connections = None
+            self.connections_changed.emit()
 
 
 class ProviderConnection:
@@ -71,6 +75,7 @@ class ProviderConnection:
         self.connectionid = connectionid
         self._databases = None
 
+    @waitcursor
     def databases(self):
         if self._databases is None:
             databases = CartoApi.instance().databases(self.connectionid)
@@ -89,6 +94,7 @@ class Database:
         self.connection = connection
         self._schemas = None
 
+    @waitcursor
     def schemas(self):
         if self._schemas is None:
             schemas = CartoApi.instance().schemas(
@@ -108,7 +114,9 @@ class Schema:
         self.name = name
         self._tables = None
         self._can_write = None
+        self.tasks = []
 
+    @waitcursor
     def tables(self):
         if self._tables is None:
             if self.database.connection.provider_type == "bigquery":
@@ -182,6 +190,7 @@ class Schema:
 
         return self._tables
 
+    @waitcursor
     def can_write(self):
         if self._can_write is None:
             fqn = quote_for_provider(
@@ -205,34 +214,46 @@ class Schema:
                 self._can_write = False
         return self._can_write
 
+    @waitcursor
     def import_table(self, file_or_layer, tablename):
         if isinstance(file_or_layer, QgsMapLayer):
-            isSupported = True  # TODO
-            if isSupported:
-                filepath = file_or_layer.source()
-            else:
-                # TODO
-                filepath = file_or_layer.source()
+            layer = file_or_layer
         else:
-            filepath = file_or_layer
+            layer = QgsVectorLayer(file_or_layer, tablename, "ogr")
         fqn = f"{self.database.databaseid}.{self.schemaid}.{tablename}"
-        try:
-            CartoApi.instance().import_table_from_file(
-                self.database.connection.name, fqn, filepath
-            )
+
+        task = ImportLayerTask(
+            self.database.connection.name,
+            self.database.connection.provider_type,
+            fqn,
+            layer,
+        )
+
+        def _show_terminated_message():
             iface.messageBar().pushMessage(
-                "Imported",
-                "The layer has been imported",
-                level=Qgis.Success,
-                duration=10,
-            )
-        except Exception as e:
-            iface.messageBar().pushMessage(
-                "Import failed",
-                "Please check your layer and try again",
+                f"Importing to {fqn} failed or was canceled",
                 level=Qgis.Warning,
-                duration=10,
+                duration=5,
             )
+
+        def _show_completed_message():
+            iface.messageBar().pushMessage(
+                f"Layer correctly imported to {fqn}", level=Qgis.Success, duration=5
+            )
+
+        task.taskTerminated.connect(_show_terminated_message)
+        task.taskCompleted.connect(_show_completed_message)
+
+        self.tasks.append(task)
+
+        QgsApplication.taskManager().addTask(task)
+        QCoreApplication.processEvents()
+        iface.messageBar().pushMessage(
+            "",
+            "Order download task added to QGIS task manager",
+            level=Qgis.Info,
+            duration=5,
+        )
 
 
 class Table:
@@ -244,6 +265,7 @@ class Table:
         self.size = size
         self._table_info = None
 
+    @waitcursor
     def table_info(self):
         if self._table_info is None:
             self._table_info = CartoApi.instance().table_info(
@@ -260,6 +282,7 @@ class Table:
     def geom_column(self):
         return self.table_info()["geomField"]
 
+    @waitcursor
     def pk(self):
         if self.schema.database.connection.provider_type == "bigquery":
             sql = f"""
@@ -316,6 +339,7 @@ class Table:
             return ret["rows"][0]["column_name"]
         return None
 
+    @waitcursor
     def get_rows(self, where=None):
         fqn = quote_for_provider(
             f"{self.schema.database.databaseid}.{self.schema.schemaid}.{self.tableid}",
@@ -374,6 +398,7 @@ class Table:
         save_layer_metadata(gpkglayer, layer_metadata)
         return gpkglayer
 
+    @waitcursor
     def _download_using_sql(self, where=None):
         data = self.get_rows(where)
 

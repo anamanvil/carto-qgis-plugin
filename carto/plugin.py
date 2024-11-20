@@ -11,6 +11,8 @@ from carto.core.api import CartoApi
 
 from qgis.utils import iface
 
+from carto.gui.authorization_manager import AUTHORIZATION_MANAGER
+
 pluginPath = os.path.dirname(__file__)
 
 
@@ -32,7 +34,7 @@ class CartoPlugin(object):
         self.carto_menu = QMenu("CARTO")
         web_menu.addMenu(self.carto_menu)
 
-        self.carto_menu.addAction(CartoApi.instance().login_action())
+        self.carto_menu.addAction(AUTHORIZATION_MANAGER.login_action)
 
         self.login_action = QAction()
         self.login_action.setIcon(CARTO_ICON)
@@ -58,6 +60,8 @@ class CartoPlugin(object):
         self.carto_menu = None
 
     def login(self):
+        AUTHORIZATION_MANAGER.login()
+        """
         if CartoApi.instance().is_logged_in():
             iface.messageBar().pushMessage(
                 "Authentication",
@@ -67,3 +71,4 @@ class CartoPlugin(object):
             )
         else:
             CartoApi.instance().login()
+        """

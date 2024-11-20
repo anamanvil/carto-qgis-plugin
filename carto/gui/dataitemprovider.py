@@ -24,6 +24,7 @@ from carto.gui.settingsdialog import SettingsDialog
 from carto.gui.importdialog import ImportDialog
 from carto.gui.downloadfilteredlayerdialog import DownloadFilteredLayerDialog
 from carto.gui.selectprimarykeydialog import SelectPrimaryKeyDialog
+from carto.gui.authorization_manager import AUTHORIZATION_MANAGER
 
 IMGS_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "imgs")
 
@@ -79,6 +80,7 @@ class RootCollection(QgsDataCollectionItem):
         return children
 
     def actions(self, parent):
+        return [AUTHORIZATION_MANAGER.login_action]
         actions = []
         if CartoApi.instance().is_logged_in():
             logout_action = QAction(QIcon(), "Log Out", parent)
@@ -185,7 +187,7 @@ class SchemaItem(QgsDataCollectionItem):
         ret = dialog.exec_()
         if ret == QDialog.Accepted:
             dialog.schema.import_table(
-                dialog.layer_or_file,
+                dialog.file_or_layer,
                 dialog.tablename,
             )
 

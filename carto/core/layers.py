@@ -5,18 +5,7 @@ from functools import partial
 from qgis.utils import iface
 from qgis.core import (
     Qgis,
-    QgsMapLayer,
     QgsVectorLayer,
-    QgsFeatureRequest,
-    QgsRectangle,
-    QgsWkbTypes,
-    QgsCoordinateTransform,
-    QgsProject,
-    QgsGeometry,
-    QgsTextAnnotation,
-    QgsMarkerSymbol,
-    QgsPointXY,
-    QgsFillSymbol,
     QgsApplication,
 )
 
@@ -24,7 +13,12 @@ from qgis.PyQt.QtCore import Qt
 
 from carto.core.api import CartoApi
 from carto.core.logging import error
-from carto.core.utils import quote_for_provider, prepare_multipart_sql
+from carto.core.utils import (
+    quote_for_provider,
+    prepare_multipart_sql,
+    prepare_geo_value_for_provider,
+)
+from carto.gui.utils import waitcursor
 
 
 pluginPath = os.path.dirname(__file__)
@@ -102,6 +96,7 @@ class LayerTracker:
         self.layer_changes[layer.id()] = Changes()
         self.schema_has_changed = False
 
+    @waitcursor
     def upload_changes(self, layer):
         if not can_write(layer):
             iface.messageBar().pushMessage(
@@ -136,11 +131,6 @@ class LayerTracker:
             return
         fqn = fqn_from_layer(layer)
         quoted_fqn = quote_for_provider(fqn, provider_type)
-        wkb_func = (
-            "ST_GEOGFROMWKB"
-            if provider_type in ["bigquery", "snowflake"]
-            else "ST_GEOMFROMWKB"
-        )
         geom_column = geom_column_from_layer(layer)
         if self.layer_changes[layer.id()].attributes_changed:
             for featureid, change in self.layer_changes[
@@ -157,8 +147,9 @@ class LayerTracker:
         if self.layer_changes[layer.id()].geoms_changed:
             for featureid, geom in self.layer_changes[layer.id()].geoms_changed.items():
                 pk_value = layer.getFeature(featureid)[pk_field]
+                geo_value = prepare_geo_value_for_provider(provider_type, geom)
                 statements.append(
-                    f"UPDATE {quoted_fqn} SET {geom_column} = {wkb_func}('{geom.asWkb().toHex().data().decode()}') WHERE {pk_field} = {pk_value};"
+                    f"UPDATE {quoted_fqn} SET {geom_column} = {geo_value} WHERE {pk_field} = {pk_value};"
                 )
         if self.layer_changes[layer.id()].features_removed:
             for featureid in self.layer_changes[layer.id()].features_removed:
@@ -174,10 +165,9 @@ class LayerTracker:
                 values = []
                 if geom_column is not None:
                     geom = feature.geometry()
+                    geo_value = prepare_geo_value_for_provider(provider_type, geom)
                     fields.append(geom_column)
-                    values.append(
-                        f"{wkb_func}('{geom.asWkb().toHex().data().decode()}')"
-                    )
+                    values.append(geo_value)
                 for i in range(feature.fields().count()):
                     field = feature.fields().at(i)
                     field_name = field.name()
