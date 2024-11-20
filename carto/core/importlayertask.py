@@ -35,8 +35,9 @@ class ImportLayerTask(QgsTask):
 
     def run(self):
         try:
+            self.setProgress(0)
             fqn = quote_for_provider(self.fqn, self.provider_type)
-            sql_create = f"CREATE OR REPLACE TABLE {self.fqn} (\n"
+            sql_create = f"CREATE TABLE {fqn} (\n"
             field_definitions = []
 
             for field in self.layer.fields():
@@ -48,7 +49,13 @@ class ImportLayerTask(QgsTask):
             field_definitions.append(f"  geom {geo_type}")
 
             sql_create += ",\n".join(field_definitions) + "\n);"
-
+            sql_create = f"""
+                DROP TABLE IF EXISTS {self.fqn};
+                {sql_create}
+                """
+            sql_create = prepare_multipart_sql([sql_create], self.provider_type, fqn)
+            CartoApi.instance().execute_query(self.connection_name, sql_create)
+            self.setProgress(1)
             insert_statements = []
 
             for feature in self.layer.getFeatures():
@@ -79,7 +86,6 @@ class ImportLayerTask(QgsTask):
                 )
                 insert_statements.append(insert_statement)
 
-            CartoApi.instance().execute_query(self.connection_name, sql_create)
             batch_size = 10
             num_batches = len(insert_statements) // batch_size
             for i in range(num_batches):
@@ -93,7 +99,7 @@ class ImportLayerTask(QgsTask):
                         self.fqn,
                     ),
                 )
-                self.setProgress(int(i / len(insert_statements) * 100))
+                self.setProgress(int(i / num_batches * 100))
             if (num_batches * batch_size) < len(insert_statements):
                 CartoApi.instance().execute_query_post(
                     self.connection_name,
@@ -107,11 +113,3 @@ class ImportLayerTask(QgsTask):
         except Exception:
             self.exception = traceback.format_exc()
             return False
-
-    def finished(self, result):
-        if self.exception is not None:
-            QgsMessageLog.logMessage(
-                f"Could not import layer to {self.fqn}.\n{self.exception}",
-                "CARTO",
-                Qgis.Warning,
-            )

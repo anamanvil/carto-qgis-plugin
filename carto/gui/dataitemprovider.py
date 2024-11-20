@@ -25,8 +25,6 @@ from carto.gui.downloadfilteredlayerdialog import DownloadFilteredLayerDialog
 from carto.gui.selectprimarykeydialog import SelectPrimaryKeyDialog
 from carto.gui.authorization_manager import AUTHORIZATION_MANAGER
 
-IMGS_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "imgs")
-
 carto_connection = CartoConnection()
 
 pluginPath = os.path.dirname(__file__)
@@ -74,7 +72,7 @@ class RootCollection(QgsDataCollectionItem):
         children = []
         basemaps = BasemapsCollection()
         children.append(basemaps)
-        if CartoApi.instance().is_logged_in():
+        if AUTHORIZATION_MANAGER.is_authorized():
             connections = carto_connection.provider_connections()
             for connection in connections:
                 item = ConnectionItem(self, connection)
@@ -83,16 +81,6 @@ class RootCollection(QgsDataCollectionItem):
 
     def actions(self, parent):
         actions = [AUTHORIZATION_MANAGER.login_action]
-        """
-        if CartoApi.instance().is_logged_in():
-            logout_action = QAction(QIcon(), "Log Out", parent)
-            logout_action.triggered.connect(self.logout)
-            actions.append(logout_action)
-        else:
-            login_action = QAction(QIcon(), "Log In...", parent)
-            login_action.triggered.connect(self.login)
-            actions.append(login_action)
-        """
         settings_action = QAction(QIcon(), "Settings...", parent)
         settings_action.triggered.connect(self.show_settings)
         actions.append(settings_action)
@@ -246,6 +234,7 @@ class SchemaItem(QgsDataCollectionItem):
                 dialog.file_or_layer,
                 dialog.tablename,
             )
+            dialog.schema.clear_tables_cache()
 
 
 MAX_TABLE_SIZE = 10

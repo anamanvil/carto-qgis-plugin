@@ -118,6 +118,8 @@ class Schema:
 
     @waitcursor
     def tables(self):
+        print("tables")
+        print(self._tables)
         if self._tables is None:
             if self.database.connection.provider_type == "bigquery":
                 MAXNROWS = 50000000
@@ -190,6 +192,9 @@ class Schema:
 
         return self._tables
 
+    def clear_tables_cache(self):
+        self._tables = None
+
     @waitcursor
     def can_write(self):
         if self._can_write is None:
@@ -238,6 +243,7 @@ class Schema:
             iface.messageBar().pushMessage(
                 f"Layer correctly imported to {fqn}", level=Qgis.Success, duration=5
             )
+            self.clear_tables_cache()
 
         task.taskTerminated.connect(_show_terminated_message)
         task.taskCompleted.connect(_show_completed_message)

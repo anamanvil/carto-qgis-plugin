@@ -4,18 +4,14 @@ except ImportError:
     from urlparse import urljoin
 import requests
 import uuid
-from qgis.PyQt.QtCore import pyqtSignal, QObject
-from qgis.PyQt.QtWidgets import QDialog, QAction
+from qgis.PyQt.QtCore import QObject
+from qgis.PyQt.QtWidgets import QDialog
 from qgis.utils import iface
 from qgis.core import Qgis
-from carto.gui.utils import waitcursor
 from carto.gui.authorizedialog import AuthorizeDialog
 from carto.core.utils import (
     setting,
     TOKEN,
-    provider_data_type_from_qgis_type,
-    quote_for_provider,
-    prepare_geo_value_for_provider,
 )
 import os
 
@@ -40,28 +36,6 @@ class CartoApi(QObject):
         super().__init__()
         if CartoApi.__instance is not None:
             raise Exception("Singleton class")
-
-    def login(self):
-        dialog = AuthorizeDialog(iface.mainWindow())
-        dialog.exec_()
-        if dialog.result() == QDialog.Accepted:
-            try:
-                self.token = setting(TOKEN)
-                self.get_json("https://accounts.app.carto.com/users/me")
-            except Exception:
-                iface.messageBar().pushMessage(
-                    "Login failed",
-                    "Please check your token and try again",
-                    level=Qgis.Warning,
-                    duration=10,
-                )
-            else:
-                iface.messageBar().pushMessage(
-                    "Login successful",
-                    "You are now logged in",
-                    level=Qgis.Success,
-                    duration=10,
-                )
 
     def set_token(self, token):
         self.token = token

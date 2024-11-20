@@ -14,5 +14,5 @@ tags=versioning, data
 homepage=https://kartproject.org
 repository=https://github.com/cartodb/carto-qgis-plugin
 tracker=https://github.com/cartodb/carto-qgis-plugin/issues
-icon=img/carto.png
+icon=gui/img/carto.svg
 category=Plugins

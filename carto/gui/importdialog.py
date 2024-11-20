@@ -79,6 +79,7 @@ class ImportDialog(BASE, WIDGET):
                 self.tablename = self.comboLayer.currentLayer().name()
             else:
                 self.tablename = os.path.basename(self.txtFile.filePath()).split(".")[0]
+            self.tablename = "".join([c for c in self.tablename if c.isalnum()])
         self.schema = (
             CartoConnection.instance()
             .provider_connections()[self.comboConnection.currentIndex()]

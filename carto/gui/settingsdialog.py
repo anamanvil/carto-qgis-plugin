@@ -27,9 +27,7 @@ class SettingsDialog(BASE, WIDGET):
 
     def setValues(self):
         self.txtToken.setText(setting(TOKEN))
-        self.txtMaxRows.setText(setting(MAXROWS) or "100")
 
     def okClicked(self):
         setSetting(TOKEN, self.txtToken.text())
-        setSetting(MAXROWS, self.txtMaxRows.text())
         self.accept()

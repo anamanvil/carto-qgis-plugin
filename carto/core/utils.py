@@ -138,9 +138,7 @@ def prepare_geo_value_for_provider(provider_type, geom):
         return f"'{geom.asWkt()}'"
     else:
         wkb = geom.asWkb().toHex().data().decode()
-        wkb_func = (
-            "ST_GEOGFROMWKB"
-            if provider_type in ["bigquery", "snowflake"]
-            else "ST_GEOMFROMWKB"
-        )
-        return f"{wkb_func}('{wkb}')"
+        if provider_type in ["bigquery", "snowflake"]:
+            return f"ST_GEOGFROMWKB('{wkb}')"
+        else:
+            return f"ST_GEOMFROMWKB(DECODE('{wkb}', 'hex'))"

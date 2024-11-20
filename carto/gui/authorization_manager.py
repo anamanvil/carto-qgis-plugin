@@ -47,7 +47,7 @@ class AuthorizationManager(QObject):
         self.queued_callbacks = []
         self.user: Optional[User] = None
 
-        self.login_action = QAction(self.tr("Sign In…"))
+        self.login_action = QAction(self.tr("Log In…"))
         self.login_action.triggered.connect(self.login)
 
     @staticmethod
@@ -135,7 +135,7 @@ class AuthorizationManager(QObject):
         self.status_changed.emit(self.status)
 
         if self.status == AuthState.NotAuthorized:
-            self.login_action.setText(self.tr("Sign In…"))
+            self.login_action.setText(self.tr("Log In…"))
             self.login_action.setEnabled(True)
             self.user = None
         elif self.status == AuthState.Authorizing:
