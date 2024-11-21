@@ -1,9 +1,6 @@
 import traceback
-from collections import defaultdict
 
 from qgis.core import (
-    Qgis,
-    QgsMessageLog,
     QgsTask,
 )
 

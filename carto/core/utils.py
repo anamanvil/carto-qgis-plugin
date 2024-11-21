@@ -6,8 +6,9 @@ from carto.gui.utils import waitcursor
 from qgis.PyQt.QtCore import QSettings, QVariant
 
 NAMESPACE = "carto"
-MAXROWS = "maxrows"
 TOKEN = "token"
+
+MAX_ROWS = 1000000
 
 setting_types = {}
 

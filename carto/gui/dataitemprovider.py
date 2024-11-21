@@ -3,6 +3,7 @@ import sip
 from json2html import json2html
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QDialog
+from qgis.PyQt.QtCore import QCoreApplication
 from qgis.core import (
     QgsDataItemProvider,
     QgsDataCollectionItem,
@@ -12,18 +13,21 @@ from qgis.core import (
     Qgis,
     QgsVectorTileLayer,
     QgsMessageOutput,
+    QgsApplication,
 )
 from qgis.utils import iface
+from functools import partial
 
 from carto.core.connection import CartoConnection
 from carto.core.api import CartoApi
 from carto.core.layers import layer_metadata, save_layer_metadata
-from carto.core.utils import setting, TOKEN
+from carto.core.utils import MAX_ROWS
 from carto.gui.settingsdialog import SettingsDialog
 from carto.gui.importdialog import ImportDialog
 from carto.gui.downloadfilteredlayerdialog import DownloadFilteredLayerDialog
 from carto.gui.selectprimarykeydialog import SelectPrimaryKeyDialog
 from carto.gui.authorization_manager import AUTHORIZATION_MANAGER
+from carto.core.downloadtabletask import DownloadTableTask
 
 carto_connection = CartoConnection()
 
@@ -246,6 +250,7 @@ class TableItem(QgsDataItem):
             self, QgsDataItem.Custom, parent, table.name, "/Carto/table/" + table.name
         )
         self.table = table
+        self.tasks = []
         self.setIcon(tableIcon)
         self.populate()
 
@@ -290,8 +295,42 @@ class TableItem(QgsDataItem):
     def add_layer(self):
         self._add_layer(None)
 
-    def _add_layer(self, where):
-        layer = self.table.download(where)
+    def _add_layer(self, where=None):
+        where = where or f"TRUE LIMIT {MAX_ROWS}"
+
+        task = DownloadTableTask(self.table, where)
+
+        def _show_terminated_message():
+            iface.messageBar().pushMessage(
+                f"Layer download failed or was canceled ({self.table.name})",
+                level=Qgis.Warning,
+                duration=5,
+            )
+
+        task.taskTerminated.connect(_show_terminated_message)
+        task.taskCompleted.connect(partial(self._add_to_project, task))
+
+        self.tasks.append(task)
+
+        QgsApplication.taskManager().addTask(task)
+        QCoreApplication.processEvents()
+        iface.messageBar().pushMessage(
+            "",
+            "Download task added to QGIS task manager",
+            level=Qgis.Info,
+            duration=5,
+        )
+
+    def _add_to_project(self, task):
+        layer = task.layer
+        if layer is None:
+            iface.messageBar().pushMessage(
+                "The query didn't yield any data to download",
+                level=Qgis.Warning,
+                duration=10,
+            )
+            return
+
         QgsProject.instance().addMapLayer(layer)
         metadata = layer_metadata(layer)
         if not metadata["can_write"]:
@@ -317,3 +356,4 @@ class TableItem(QgsDataItem):
                     level=Qgis.Warning,
                     duration=10,
                 )
+        self.tasks.remove(task)

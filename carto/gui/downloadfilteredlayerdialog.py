@@ -79,4 +79,6 @@ class DownloadFilteredLayerDialog(BASE, WIDGET):
                 )
                 return
             self.where += f" LIMIT {limit}"
+        else:
+            self.where += f" LIMIT {MAX_ROWS}"
         self.accept()

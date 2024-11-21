@@ -254,7 +254,7 @@ class Schema:
         QCoreApplication.processEvents()
         iface.messageBar().pushMessage(
             "",
-            "Order download task added to QGIS task manager",
+            "Import task added to QGIS task manager",
             level=Qgis.Info,
             duration=5,
         )
@@ -352,7 +352,7 @@ class Table:
         return CartoApi.instance().execute_query(
             self.schema.database.connection.name,
             f"""SELECT * FROM {fqn}
-                {f"WHERE {where}" if where else ""};""",
+                WHERE {where} ;""",
         )
 
     def _filepath(self):
@@ -364,6 +364,7 @@ class Table:
         )
 
     def download(self, where=None):
+        return self._download_using_sql(where)
         if self.schema.database.connection.provider_type == "bigquery":
             return self._download_bigquery(where)
         else:
@@ -402,97 +403,3 @@ class Table:
         save_layer_metadata(gpkglayer, layer_metadata)
         return gpkglayer
 
-    @waitcursor
-    def _download_using_sql(self, where=None):
-        data = self.get_rows(where)
-
-        geopackage_file = self._filepath()
-
-        rows = data.get("rows", [])
-        schema = data.get("schema", [])
-
-        fields = QgsFields()
-        geom_field = None
-        for field in schema:
-            field_name = field["name"]
-            field_type = field["type"]
-            if field_type == "string":
-                fields.append(QgsField(field_name, QVariant.String))
-            elif field_type == "integer":
-                fields.append(QgsField(field_name, QVariant.Int))
-            elif field_type in ["double", "number"]:
-                fields.append(QgsField(field_name, QVariant.Double))
-            elif field_type == "geometry":
-                geom_field = field_name
-
-        if geom_field is not None:
-            geom_type = rows[0][geom_field]["type"]
-        else:
-            geom_type = None
-        layer = QgsVectorLayer(f"{geom_type}?crs=EPSG:4326", self.name, "memory")
-        provider = layer.dataProvider()
-        provider.addAttributes(fields)
-        layer.updateFields()
-
-        for item in rows:
-            feature = QgsFeature()
-            feature.setFields(fields)
-
-            for field in fields:
-                feature.setAttribute(field.name(), item.get(field.name()))
-
-            geom = item.get(geom_field, {})
-            if geom:
-                geom_type = geom.get("type")
-                coordinates = geom.get("coordinates", [])
-
-                if geom_type == "Point" and len(coordinates) == 2:
-                    point = QgsPointXY(coordinates[0], coordinates[1])
-                    feature.setGeometry(QgsGeometry.fromPointXY(point))
-                elif geom_type == "LineString":
-                    line = [QgsPointXY(x, y) for x, y in coordinates]
-                    feature.setGeometry(QgsGeometry.fromPolylineXY(line))
-                elif geom_type == "Polygon":
-                    polygon = [
-                        [QgsPointXY(x, y) for x, y in ring] for ring in coordinates
-                    ]
-                    feature.setGeometry(QgsGeometry.fromPolygonXY(polygon))
-                elif geom_type == "MultiPoint":
-                    multipoint = [QgsPointXY(x, y) for x, y in coordinates]
-                    feature.setGeometry(QgsGeometry.fromMultiPointXY(multipoint))
-                elif geom_type == "MultiLineString":
-                    multiline = [
-                        [QgsPointXY(x, y) for x, y in line] for line in coordinates
-                    ]
-                    feature.setGeometry(QgsGeometry.fromMultiPolylineXY(multiline))
-                elif geom_type == "MultiPolygon":
-                    multipolygon = [
-                        [[QgsPointXY(x, y) for x, y in ring] for ring in polygon]
-                        for polygon in coordinates
-                    ]
-                    feature.setGeometry(QgsGeometry.fromMultiPolygonXY(multipolygon))
-            provider.addFeature(feature)
-
-        os.makedirs(os.path.dirname(geopackage_file), exist_ok=True)
-
-        QgsVectorFileWriter.writeAsVectorFormat(
-            layer,
-            geopackage_file,
-            "UTF-8",
-            layer.crs(),
-            "GPKG",
-            layerOptions=["OVERWRITE=YES"],
-        )
-        gpkglayer = QgsVectorLayer(geopackage_file, self.name, "ogr")
-        gpkglayer.setCrs(QgsCoordinateReferenceSystem("EPSG:4326"))
-
-        layer_metadata = {
-            "pk": self.pk(),
-            "columns": schema,
-            "geom_column": geom_field,
-            "can_write": self.schema.can_write(),
-            "schema_changed": False,
-            "provider_type": self.schema.database.connection.provider_type,
-        }
-        save_layer_metadata(gpkglayer, layer_metadata)
-        return gpkglayer
