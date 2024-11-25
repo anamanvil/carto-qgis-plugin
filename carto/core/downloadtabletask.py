@@ -5,10 +5,7 @@ from qgis.core import (
     QgsTask,
 )
 
-from carto.core.layers import (
-    save_layer_metadata,
-    filepath_for_table
-)
+from carto.core.layers import save_layer_metadata, filepath_for_table
 
 from carto.core.logging import (
     error,
@@ -16,6 +13,7 @@ from carto.core.logging import (
 
 from carto.core.utils import (
     quote_for_provider,
+    download_file,
 )
 
 from carto.core.api import (
@@ -50,20 +48,62 @@ class DownloadTableTask(QgsTask):
         self.layer = None
 
     def run(self):
+        if self.table.schema.database.connection.provider_type == "bigquery":
+            return self._download_using_sql()
+            # self._download_bigquery()
+        else:
+            return self._download_using_sql()
+
+    def _download_bigquery(self):
+        try:
+            fqn = f"{self.table.schema.database.databaseid}.{self.table.schema.schemaid}.{self.table.tableid}"
+            quoted_fqn = quote_for_provider(
+                fqn, self.table.schema.database.connection.provider_type
+            )
+            query = f"(SELECT * FROM {quoted_fqn} WHERE {self.where}"
+            ret = CartoApi.instance().execute_query(
+                self.table.schema.database.connection.name,
+                f"CALL cartobq.us.EXPORT_WITH_GDAL('''{query}''','GPKG',NULL,'{self.table.tableid}');",
+            )
+            url = ret["rows"][0]["result"]
+            geopackage_file = self._filepath()
+            os.makedirs(os.path.dirname(geopackage_file), exist_ok=True)
+            download_file(url, geopackage_file)
+
+            gpkglayer = QgsVectorLayer(geopackage_file, self.name, "ogr")
+            gpkglayer.setCrs(QgsCoordinateReferenceSystem("EPSG:4326"))
+
+            layer_metadata = {
+                "pk": self.table.pk(),
+                "columns": self.table.columns(),
+                "geom_column": self.table.geom_column(),
+                "can_write": self.table.schema.can_write(),
+                "schema_changed": False,
+                "provider_type": self.table.schema.database.connection.provider_type,
+            }
+            save_layer_metadata(gpkglayer, layer_metadata)
+            self.layer = gpkglayer
+            return True
+        except Exception:
+            self.exception = traceback.format_exc()
+            error(self.exception)
+            return False
+
+    def _download_using_sql(self):
         try:
             self.setProgress(1)
             batch_size = 100
             offset = 0
+            row_count = self.row_count()
+            if row_count == 0:
+                self.layer = None
+                return True
             while True:
                 where_with_offset = f"{self.where} OFFSET {offset}"
                 data = self.get_rows(where_with_offset)
                 rows = data.get("rows", [])
                 if offset == 0:
-                    if len(rows) == 0:
-                        self.layer = None
-                        return True
                     schema = data.get("schema", [])
-
                     fields = QgsFields()
                     geom_field = None
                     for field in schema:
@@ -145,7 +185,7 @@ class DownloadTableTask(QgsTask):
                             )
                     provider.addFeature(feature)
                 offset += batch_size
-                self.setProgress(offset / 300 * 100)
+                self.setProgress(min((offset + batch_size) / row_count, 1) * 90)
 
             geopackage_file = filepath_for_table(
                 self.table.schema.database.connection.name,
@@ -175,6 +215,7 @@ class DownloadTableTask(QgsTask):
                 "provider_type": self.table.schema.database.connection.provider_type,
             }
             save_layer_metadata(gpkglayer, layer_metadata)
+            self.setProgress(100)
             self.layer = gpkglayer
 
             return True
@@ -193,3 +234,14 @@ class DownloadTableTask(QgsTask):
             f"""SELECT * FROM {fqn}
                 WHERE {where} ;""",
         )
+
+    def row_count(self):
+        fqn = quote_for_provider(
+            f"{self.table.schema.database.databaseid}.{self.table.schema.schemaid}.{self.table.tableid}",
+            self.table.schema.database.connection.provider_type,
+        )
+        return CartoApi.instance().execute_query(
+            self.table.schema.database.connection.name,
+            f"""SELECT COUNT(*) AS row_count FROM {fqn}
+                WHERE {self.where} ;""",
+        )["rows"][0]["row_count"]

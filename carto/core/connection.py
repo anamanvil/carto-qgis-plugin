@@ -2,7 +2,6 @@ import os
 from carto.core.api import CartoApi
 from carto.core.layers import filepath_for_table, save_layer_metadata
 from carto.core.utils import (
-    download_file,
     quote_for_provider,
     prepare_multipart_sql,
 )
@@ -13,18 +12,11 @@ from carto.core.enums import AuthState
 
 from qgis.core import (
     QgsVectorLayer,
-    QgsFeature,
-    QgsField,
-    QgsFields,
-    QgsGeometry,
-    QgsPointXY,
-    QgsVectorFileWriter,
-    QgsCoordinateReferenceSystem,
     QgsMapLayer,
     Qgis,
     QgsApplication,
 )
-from qgis.PyQt.QtCore import QVariant, QObject, pyqtSignal, QCoreApplication
+from qgis.PyQt.QtCore import QObject, pyqtSignal, QCoreApplication
 
 from qgis.utils import iface
 
@@ -362,44 +354,3 @@ class Table:
             self.schema.schemaid,
             self.tableid,
         )
-
-    def download(self, where=None):
-        return self._download_using_sql(where)
-        if self.schema.database.connection.provider_type == "bigquery":
-            return self._download_bigquery(where)
-        else:
-            return self._download_using_sql(where)
-
-    @waitcursor
-    def _download_bigquery(self, where=None):
-        fqn = f"{self.schema.database.databaseid}.{self.schema.schemaid}.{self.tableid}"
-        if where is None:
-            query = fqn
-        else:
-            quoted_fqn = quote_for_provider(
-                fqn, self.schema.database.connection.provider_type
-            )
-            query = f"{quoted_fqn} WHERE {where}"
-        ret = CartoApi.instance().execute_query(
-            self.schema.database.connection.name,
-            f"CALL cartobq.us.EXPORT_WITH_GDAL('''{query}''','GPKG',NULL,'{self.tableid}');",
-        )
-        url = ret["rows"][0]["result"]
-        geopackage_file = self._filepath()
-        os.makedirs(os.path.dirname(geopackage_file), exist_ok=True)
-        download_file(url, geopackage_file)
-
-        gpkglayer = QgsVectorLayer(geopackage_file, self.name, "ogr")
-        gpkglayer.setCrs(QgsCoordinateReferenceSystem("EPSG:4326"))
-
-        layer_metadata = {
-            "pk": self.pk(),
-            "columns": self.columns(),
-            "geom_column": self.geom_column(),
-            "can_write": self.schema.can_write(),
-            "schema_changed": False,
-            "provider_type": self.schema.database.connection.provider_type,
-        }
-        save_layer_metadata(gpkglayer, layer_metadata)
-        return gpkglayer
-

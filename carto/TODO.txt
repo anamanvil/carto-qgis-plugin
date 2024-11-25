@@ -1,0 +1,3 @@
+- Handle case of failure when uploading changes, so changes are not lost
+- Handle case of table being already downloaded. Ask whether to overwrite or not
+-
