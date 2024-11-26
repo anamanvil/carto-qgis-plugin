@@ -189,7 +189,7 @@ class LayerTracker:
                     fields.append(field_name)
                     values.append(value)
                 statements.append(
-                    f"INSERT INTO {fqn} ({','.join(fields)}) VALUES ({','.join(values)});"
+                    f"INSERT INTO {quoted_fqn} ({','.join(fields)}) VALUES ({','.join(values)});"
                 )
         connection = connection_from_layer(layer)
         try:
