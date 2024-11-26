@@ -3,20 +3,18 @@ Code taken from the Felt QGIS Plugin
 Original code at https://github.com/felt/qgis-plugin
 """
 
-import platform
 from typing import Optional
 
 from qgis.PyQt import sip
 from qgis.PyQt.QtCore import QObject, pyqtSignal, QTimer, QDate
-from qgis.PyQt.QtNetwork import QNetworkReply
 from qgis.PyQt.QtWidgets import QAction, QPushButton
-from qgis.core import Qgis, QgsSettings, QgsApplication
+from qgis.core import Qgis
 from qgis.gui import QgsMessageBarItem
 from qgis.utils import iface
 
 from carto.gui.authorizedialog import AuthorizeDialog
+from carto.gui.authorizationsuccessdialog import AuthorizationSuccessDialog
 from carto.core.auth import OAuthWorkflow
-from carto.core.utils import setting, TOKEN
 from carto.core.enums import AuthState
 from carto.core.api import CartoApi
 
@@ -112,7 +110,7 @@ class AuthorizationManager(QObject):
         Shows the authorization dialog before commencing the authorization
         process
         """
-        dlg = AuthorizeDialog()
+        dlg = AuthorizeDialog(iface.mainWindow())
         if dlg.exec_():
             self.start_authorization_workflow()
         else:
@@ -192,6 +190,11 @@ class AuthorizationManager(QObject):
         self._clean_workflow()
 
         self.authorized.emit()
+
+        dlg = AuthorizationSuccessDialog(iface.mainWindow())
+        dlg.exec_()
+        if dlg.logout:
+            self.deauthorize()
 
     def cleanup(self):
         """

@@ -72,7 +72,7 @@
      <item>
       <widget class="QLabel" name="labelMain">
        <property name="text">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;You're now connected to CARTO!&lt;/span&gt;&lt;br/&gt;Find CARTO in the Browser panel. From there, you cccess, visualize and edit your spatial data within QGIS. Find more in our &lt;a href=&quot;documentation&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;documentation&lt;/span&gt;&lt;/a&gt;.&lt;/p&gt;&lt;p align=&quot;center&quot;&gt;&lt;a href=&quot;logout&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;Logout&lt;/span&gt;&lt;/a&gt;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;You're now connected to CARTO!&lt;/span&gt;&lt;br/&gt;Find CARTO in the Browser panel. From there, you acccess, visualize and edit your spatial data within QGIS. Find more in our &lt;a href=&quot;documentation&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;documentation&lt;/span&gt;&lt;/a&gt;.&lt;/p&gt;&lt;p align=&quot;center&quot;&gt;&lt;a href=&quot;logout&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;Logout&lt;/span&gt;&lt;/a&gt;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignCenter</set>
@@ -99,7 +99,7 @@
       </spacer>
      </item>
      <item>
-      <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0,0,0">
+      <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0,0">
        <item>
         <spacer name="horizontalSpacer">
          <property name="orientation">
@@ -114,16 +114,9 @@
         </spacer>
        </item>
        <item>
-        <widget class="QPushButton" name="btnLogin">
+        <widget class="QPushButton" name="btnOk">
          <property name="text">
-          <string>Log In</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="btnSignup">
-         <property name="text">
-          <string>Sign Up</string>
+          <string>OK</string>
          </property>
         </widget>
        </item>

@@ -16,12 +16,11 @@ from qgis.PyQt.QtGui import QDesktopServices
 from qgis.PyQt.QtNetwork import QNetworkRequest
 from qgis.core import QgsBlockingNetworkRequest
 
-from carto.core.api import CartoApi
 
 OAUTH_BASE = "/auth.carto.com"
 
 
-CLIENT_ID = "FhFSweQg2JzGgbfVhiyOCB64ipQZvAKo"  # "f0gonYdui9c71SwJV5miANykIGJCsOdd"  #
+CLIENT_ID = "FhFSweQg2JzGgbfVhiyOCB64ipQZvAKo"
 
 REDIRECT_PORT = 5000
 REDIRECT_URL = f"http://127.0.0.1:{REDIRECT_PORT}/callback"
@@ -52,17 +51,6 @@ class CallbackHandler(BaseHTTPRequestHandler):
         if parsed_path.path == "/callback":
             code = query_params.get("code", [None])[0]
             if code:
-                print(f"Received code: {code}")
-
-                if not code:
-                    self.server.error = "Authorization canceled"
-                    self.server.access_token = None
-                    self.send_response(302)
-                    self.send_header("Content-Type", "text/plain")
-                    self.end_headers()
-                    self.wfile.write(b"Authorization canceled or failed.")
-                    return
-
                 body = {
                     "grant_type": "authorization_code",
                     "client_id": CLIENT_ID,
