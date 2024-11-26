@@ -60,15 +60,5 @@ class CartoPlugin(object):
         self.carto_menu = None
 
     def login(self):
-        AUTHORIZATION_MANAGER.login()
-        """
-        if CartoApi.instance().is_logged_in():
-            iface.messageBar().pushMessage(
-                "Authentication",
-                "You are already logged in",
-                level=Qgis.Success,
-                duration=10,
-            )
-        else:
-            CartoApi.instance().login()
-        """
+        if not AUTHORIZATION_MANAGER.is_authorized():
+            AUTHORIZATION_MANAGER.login()

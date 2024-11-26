@@ -18,7 +18,6 @@ from carto.gui.authorizedialog import AuthorizeDialog
 from carto.core.auth import OAuthWorkflow
 from carto.core.utils import setting, TOKEN
 from carto.core.enums import AuthState
-from carto.core.user import User
 from carto.core.api import CartoApi
 
 AUTH_CONFIG_ID = "carto_auth_id"
@@ -45,84 +44,9 @@ class AuthorizationManager(QObject):
         self._authorization_failed_message = None
 
         self.queued_callbacks = []
-        self.user: Optional[User] = None
 
         self.login_action = QAction(self.tr("Log In…"))
         self.login_action.triggered.connect(self.login)
-
-    @staticmethod
-    def remove_api_token():
-        """
-        Remove stored API token
-        """
-        if platform.system() == "Darwin":
-            # remove stored plain text tokens on MacOS
-            QgsSettings().remove("Carto/token", QgsSettings.Plugins)
-        else:
-            QgsApplication.authManager().removeAuthSetting(AUTH_CONFIG_ID)
-
-    @staticmethod
-    def store_api_token(token: str, expiry: int) -> bool:
-        """
-        Stores the API token in the secure QGIS password store, IF available
-
-        Returns True if the key could be stored
-        """
-        expiry_day = QDate.currentDate().addDays(int(expiry / 60 / 60 / 24))
-        if platform.system() == "Darwin":
-            # store tokens in plain text on MacOS as keychain isn't
-            # available due to MacOS security
-            QgsSettings().setValue("Carto/token", token, QgsSettings.Plugins)
-            QgsSettings().setValue(
-                "Carto/token_expiry",
-                expiry_day.toString("yyyy-MM-dd"),
-                QgsSettings.Plugins,
-            )
-        else:
-            QgsApplication.authManager().storeAuthSetting(AUTH_CONFIG_ID, token, True)
-            QgsApplication.authManager().storeAuthSetting(
-                AUTH_CONFIG_EXPIRY, expiry_day.toString("yyyy-MM-dd"), True
-            )
-        return True
-
-    @staticmethod
-    def retrieve_api_token() -> Optional[str]:
-        """
-        Retrieves a previously stored API token, if available
-
-        Returns None if no stored token is available
-        """
-        if platform.system() == "Darwin":
-            api_token = QgsSettings().value(
-                "Carto/token", None, str, QgsSettings.Plugins
-            )
-            token_expiry = QgsSettings().value(
-                "Carto/token_expiry", None, str, QgsSettings.Plugins
-            )
-            if not api_token:
-                api_token = None
-        else:
-            api_token = (
-                QgsApplication.authManager().authSetting(
-                    AUTH_CONFIG_ID, defaultValue="", decrypt=True
-                )
-                or None
-            )
-            token_expiry = (
-                QgsApplication.authManager().authSetting(
-                    AUTH_CONFIG_EXPIRY, defaultValue="", decrypt=True
-                )
-                or None
-            )
-
-        if token_expiry:
-            token_expiry_date = QDate.fromString(token_expiry, "yyyy-MM-dd")
-            if token_expiry_date <= QDate.currentDate():
-                api_token = None
-        else:
-            api_token = None
-
-        return api_token
 
     def _set_status(self, status: AuthState):
         """
@@ -137,11 +61,9 @@ class AuthorizationManager(QObject):
         if self.status == AuthState.NotAuthorized:
             self.login_action.setText(self.tr("Log In…"))
             self.login_action.setEnabled(True)
-            self.user = None
         elif self.status == AuthState.Authorizing:
             self.login_action.setText(self.tr("Authorizing…"))
             self.login_action.setEnabled(False)
-            self.user = None
         elif self.status == AuthState.Authorized:
             self.login_action.setText(self.tr("Log Out"))
             self.login_action.setEnabled(True)
@@ -181,24 +103,8 @@ class AuthorizationManager(QObject):
         """
         self._set_status(AuthState.NotAuthorized)
         CartoApi.instance().set_token(None)
-        AuthorizationManager.remove_api_token()
 
     def attempt_authorize(self):
-        """
-        Tries to authorize the client, using previously fetched token if
-        available. Otherwise shows the login dialog to the user.
-        """
-        previous_token = AuthorizationManager.retrieve_api_token()
-        if previous_token:
-            self._cleanup_messages()
-
-            self._set_status(AuthState.Authorized)
-            CartoApi.instance().set_token(previous_token)
-            self.authorized.emit()
-            user_reply = CartoApi.instance().user()
-            self._set_user_details(user_reply)
-            return
-
         self.show_authorization_dialog()
 
     def show_authorization_dialog(self):
@@ -208,27 +114,7 @@ class AuthorizationManager(QObject):
         """
         dlg = AuthorizeDialog()
         if dlg.exec_():
-            try:
-                CartoApi.instance().set_token(setting(TOKEN))
-                CartoApi.instance().get_json("https://accounts.app.carto.com/users/me")
-                self._set_status(AuthState.Authorized)
-            except Exception:
-                self._cleanup_messages()
-                iface.messageBar().pushMessage(
-                    "Login failed",
-                    "Please check your token and try again",
-                    level=Qgis.Warning,
-                    duration=10,
-                )
-            else:
-                self._cleanup_messages()
-                iface.messageBar().pushMessage(
-                    "Login successful",
-                    "You are now logged in",
-                    level=Qgis.Success,
-                    duration=10,
-                )
-            # self.start_authorization_workflow()
+            self.start_authorization_workflow()
         else:
             self.queued_callbacks = []
 
@@ -268,7 +154,7 @@ class AuthorizationManager(QObject):
             iface.messageBar().popWidget(self._authorization_failed_message)
             self._authorization_failed_message = None
 
-    def _authorization_error_occurred(self, error: str):
+    def _authorization_error_occurred(self):
         """
         Triggered when an authorization error occurs
         """
@@ -278,7 +164,7 @@ class AuthorizationManager(QObject):
         self._clean_workflow()
 
         self._set_status(AuthState.NotAuthorized)
-        login_error = self.tr("Authorization error - {}".format(error))
+        login_error = self.tr("Authorization error")
 
         self._authorization_failed_message = QgsMessageBarItem(
             self.tr("Carto"), login_error, Qgis.MessageLevel.Critical
@@ -293,43 +179,19 @@ class AuthorizationManager(QObject):
         self.queued_callbacks = []
         self.authorization_failed.emit()
 
-    def _authorization_success(self, token: str, expiry: int):
+    def _authorization_success(self, token: str):
         """
         Triggered when an authorization succeeds
         """
         self._cleanup_messages()
 
+        CartoApi.instance().set_token(token)
         self._set_status(AuthState.Authorized)
         iface.messageBar().pushSuccess(self.tr("Carto"), self.tr("Authorized"))
-        CartoApi.instance().set_token(token)
-        AuthorizationManager.store_api_token(token, expiry)
 
         self._clean_workflow()
 
         self.authorized.emit()
-
-        user_reply = CartoApi.instance().user()
-        self._set_user_details(user_reply)
-
-    def _set_user_details(self, reply: QNetworkReply):
-        """
-        Sets user details
-        """
-
-        if reply.status_code == 401:
-            self.deauthorize()
-            self.attempt_authorize()
-            return
-
-        try:
-            reply.raise_for_status()
-            self.user = User.from_json(reply.readAll().data().decode())
-            callbacks = self.queued_callbacks
-            self.queued_callbacks = []
-            for callback in callbacks:
-                callback()
-        except:
-            return
 
     def cleanup(self):
         """

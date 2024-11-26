@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>483</width>
-    <height>300</height>
+    <width>506</width>
+    <height>304</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -70,9 +70,9 @@
       </widget>
      </item>
      <item>
-      <widget class="QLabel" name="label_login">
+      <widget class="QLabel" name="labelMain">
        <property name="text">
-        <string>Access, visualize and edit spatial data hosted in your datawarehouse through CARTO</string>
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;You're now connected to CARTO!&lt;/span&gt;&lt;br/&gt;Find CARTO in the Browser panel. From there, you cccess, visualize and edit your spatial data within QGIS. Find more in our &lt;a href=&quot;documentation&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;documentation&lt;/span&gt;&lt;/a&gt;.&lt;/p&gt;&lt;p align=&quot;center&quot;&gt;&lt;a href=&quot;logout&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;Logout&lt;/span&gt;&lt;/a&gt;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignCenter</set>

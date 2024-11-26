@@ -73,32 +73,22 @@ class RootCollection(QgsDataCollectionItem):
         CartoConnection.instance().connections_changed.connect(self.refreshConnections)
 
     def createChildren(self):
-        children = []
-        basemaps = BasemapsCollection()
-        children.append(basemaps)
-        if AUTHORIZATION_MANAGER.is_authorized():
-            connections = carto_connection.provider_connections()
-            for connection in connections:
-                item = ConnectionItem(self, connection)
-                children.append(item)
+        try:
+            children = []
+            basemaps = BasemapsCollection()
+            children.append(basemaps)
+            if AUTHORIZATION_MANAGER.is_authorized():
+                connections = carto_connection.provider_connections()
+                for connection in connections:
+                    item = ConnectionItem(self, connection)
+                    children.append(item)
+        except Exception as e:
+            print(e)
         return children
 
     def actions(self, parent):
         actions = [AUTHORIZATION_MANAGER.login_action]
-        settings_action = QAction(QIcon(), "Settings...", parent)
-        settings_action.triggered.connect(self.show_settings)
-        actions.append(settings_action)
         return actions
-
-    def show_settings(self):
-        dlg = SettingsDialog(iface.mainWindow())
-        dlg.exec_()
-
-    def logout(self):
-        CartoApi.instance().logout()
-
-    def login(self):
-        CartoApi.instance().login()
 
 
 BASEMAP_STYLES = {

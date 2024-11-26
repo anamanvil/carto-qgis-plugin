@@ -54,6 +54,7 @@ class CartoConnection(QObject):
         return self._connections
 
     def _auth_status_changed(self, auth_status):
+        print("auth_status")
         if auth_status == AuthState.NotAuthorized:
             self._connections = None
         self.connections_changed.emit()

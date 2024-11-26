@@ -1,146 +1,142 @@
 """
-Code taken from the Felt QGIS Plugin
+Code adapted from the Felt QGIS Plugin
 Original code at https://github.com/felt/qgis-plugin
 """
 
-import json
-import urllib
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import parse_qs, urlsplit
 
+import json
 import requests
+import hashlib
+import base64
+import urllib.parse as urlparse
+import secrets
 from qgis.PyQt.QtCore import QThread, pyqtSignal, QUrl
 from qgis.PyQt.QtGui import QDesktopServices
 from qgis.PyQt.QtNetwork import QNetworkRequest
 from qgis.core import QgsBlockingNetworkRequest
 
-from carto.core.pkce import generate_pkce_pair
+from carto.core.api import CartoApi
 
-OAUTH_BASE = "/oauth"
-AUTH_HANDLER_REDIRECT = (
-    OAUTH_BASE + "/success?client_id=8cb129bd-6962-4f65-8cc9-14b760e8436a"
+OAUTH_BASE = "/auth.carto.com"
+
+
+CLIENT_ID = "FhFSweQg2JzGgbfVhiyOCB64ipQZvAKo"  # "f0gonYdui9c71SwJV5miANykIGJCsOdd"  #
+
+REDIRECT_PORT = 5000
+REDIRECT_URL = f"http://127.0.0.1:{REDIRECT_PORT}/callback"
+SCOPE = " ".join(
+    [
+        "profile",
+        "email",
+        "read:current_user",
+        "update:current_user",
+        "read:connections",
+        "write:connections",
+        "read:maps",
+        "write:maps",
+        "read:account",
+        "admin:account",
+    ]
 )
-AUTH_HANDLER_REDIRECT_CANCELLED = (
-    OAUTH_BASE + "/denied?client_id=8cb129bd-6962-4f65-8cc9-14b760e8436a"
-)
 
-AUTH_HANDLER_RESPONSE = """\
-<html>
-  <head>
-    <title>Authentication Status</title>
-  </head>
-  <body>
-    <p>The authentication flow has completed.</p>
-  </body>
-</html>
-"""
-
-AUTH_HANDLER_RESPONSE_ERROR = """\
-<html>
-  <head>
-    <title>Authentication Status</title>
-  </head>
-  <body>
-    <p>The authentication flow encountered an error: {}.</p>
-  </body>
-</html>
-"""
-
-AUTH_URL = OAUTH_BASE + "/consent"
-TOKEN_URL = OAUTH_BASE + "/token"
-
-CLIENT_ID = "8cb129bd-6962-4f65-8cc9-14b760e8436a"
-
-REDIRECT_PORT = 8989
-REDIRECT_URL = f"http://127.0.0.1:{REDIRECT_PORT}/"
-SCOPE = "map.write map.read profile.read layer.write"
+TOKEN_URL = "https://auth.carto.com/oauth/token"
 
 
-class _Handler(BaseHTTPRequestHandler):
-    """
-    HTTP handle for OAuth workflows
-    """
-
-    # pylint: disable=missing-function-docstring
-
-    def log_request(self, _format, *args):  # pylint: disable=arguments-differ
-        pass
-
+class CallbackHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        params = parse_qs(urlsplit(self.path).query)
-        code = params.get("code")
+        parsed_path = urlparse.urlparse(self.path)
+        query_params = urlparse.parse_qs(parsed_path.query)
 
-        if not code:
-            self.server.error = "Authorization canceled"
-            self._send_response()
-            return
+        self.server.error = None
+        if parsed_path.path == "/callback":
+            code = query_params.get("code", [None])[0]
+            if code:
+                print(f"Received code: {code}")
 
-        body = {
-            "grant_type": "authorization_code",
-            "client_id": CLIENT_ID,
-            "code_verifier": self.server.code_verifier,
-            "code": code[0],
-            "redirect_uri": REDIRECT_URL,
-        }
+                if not code:
+                    self.server.error = "Authorization canceled"
+                    self.server.access_token = None
+                    self.send_response(302)
+                    self.send_header("Content-Type", "text/plain")
+                    self.end_headers()
+                    self.wfile.write(b"Authorization canceled or failed.")
+                    return
 
-        request = QgsBlockingNetworkRequest()
-        token_body = urllib.parse.urlencode(body).encode()
+                body = {
+                    "grant_type": "authorization_code",
+                    "client_id": CLIENT_ID,
+                    "code_verifier": self.server.code_verifier,
+                    "code": code,
+                    "redirect_uri": REDIRECT_URL,
+                }
 
-        network_request = QNetworkRequest(QUrl(TOKEN_URL))
-        network_request.setHeader(
-            QNetworkRequest.ContentTypeHeader, "application/x-www-form-urlencoded"
-        )
+                request = QgsBlockingNetworkRequest()
+                token_body = urlparse.urlencode(body).encode()
 
-        result_code = request.post(network_request, data=token_body, forceRefresh=True)
-        if result_code != QgsBlockingNetworkRequest.NoError:
-            self.server.error = (
-                request.reply().content().data().decode()
-                or request.reply().errorString()
-            )
-            self._send_response()
-            return
-
-        resp = json.loads(request.reply().content().data().decode())
-
-        access_token = resp.get("access_token")
-        expires_in = resp.get("expires_in")
-
-        if not access_token or not expires_in:
-            if not access_token:
-                self.server.error = "Could not find access_token in reply"
-            elif not expires_in:
-                self.server.error = "Could not find expires_in in reply"
-
-            self._send_response()
-            return
-
-        self.server.access_token = access_token
-        self.server.expires_in = expires_in
-        self._send_response()
-
-    def _send_response(self):
-        if AUTH_HANDLER_REDIRECT and self.server.error is None:
-            self.send_response(302)
-            self.send_header("Location", AUTH_HANDLER_REDIRECT)
-            self.end_headers()
-        elif AUTH_HANDLER_REDIRECT_CANCELLED and self.server.error:
-            self.send_response(302)
-            self.send_header("Location", AUTH_HANDLER_REDIRECT_CANCELLED)
-            self.end_headers()
-        else:
-            self.send_response(200)
-            self.send_header("Content-type", "text/html")
-            self.end_headers()
-            if self.server.error is not None:
-                self.wfile.write(
-                    AUTH_HANDLER_RESPONSE_ERROR.format(self.server.error).encode(
-                        "utf-8"
-                    )
+                network_request = QNetworkRequest(QUrl(TOKEN_URL))
+                network_request.setHeader(
+                    QNetworkRequest.ContentTypeHeader,
+                    "application/x-www-form-urlencoded",
                 )
-            else:
-                self.wfile.write(AUTH_HANDLER_RESPONSE.encode("utf-8"))
 
-    # pylint: enable=missing-function-docstring
+                result_code = request.post(
+                    network_request, data=token_body, forceRefresh=True
+                )
+                if result_code != QgsBlockingNetworkRequest.NoError:
+                    self.server.error = (
+                        request.reply().content().data().decode()
+                        or request.reply().errorString()
+                    )
+                    self.send_response(302)
+                    self.send_header("Content-Type", "text/plain")
+                    self.end_headers()
+                    self.wfile.write(b"Authorization failed.")
+                    self.server.access_token = None
+                    return
+
+                resp = json.loads(request.reply().content().data().decode())
+
+                access_token = resp.get("access_token")
+
+                if not access_token:
+                    self.server.error = "Could not find access_token in reply"
+                    self.send_response(302)
+                    self.send_header("Content-Type", "text/plain")
+                    self.end_headers()
+                    self.wfile.write(b"Authorization failed.")
+                    self.server.access_token = None
+                    return
+
+                self.server.access_token = access_token
+
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(b"Authorization finished. You can go back to QGIS.")
+            else:
+                self.send_response(302)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(b"Authorization canceled or failed.")
+                self.server.access_token = None
+        else:
+            self.send_response(404)
+            self.end_headers()
+            self.wfile.write(b"Not Found")
+
+
+def auth0_url_encode(byte_data):
+    """
+    Safe encoding handles + and /, and also replace = with nothing
+    :param byte_data:
+    :return:
+    """
+    return base64.urlsafe_b64encode(byte_data).decode("utf-8").replace("=", "")
+
+
+def generate_challenge(a_verifier):
+    return auth0_url_encode(hashlib.sha256(a_verifier.encode()).digest())
 
 
 class OAuthWorkflow(QThread):
@@ -151,25 +147,31 @@ class OAuthWorkflow(QThread):
     will be emitted
     """
 
-    finished = pyqtSignal(str, int)
-    error_occurred = pyqtSignal(str)
+    finished = pyqtSignal(str)
+    error_occurred = pyqtSignal()
 
     def __init__(self):
         super().__init__()
 
         self.server = None
 
-        self.code_verifier, self.code_challenge = generate_pkce_pair()
+        verifier = auth0_url_encode(secrets.token_bytes(32))
+        challenge = generate_challenge(verifier)
+        state = auth0_url_encode(secrets.token_bytes(32))
 
-        self.authorization_url = (
-            f"{AUTH_URL}?"
-            f"scope={SCOPE}&"
-            f"response_type=code&"
-            f"client_id={CLIENT_ID}&"
-            f"code_challenge={self.code_challenge}&"
-            f"code_challenge_method=S256&"
-            f"redirect_uri={REDIRECT_URL}"
-        )
+        base_url = "https://auth.carto.com/authorize?"
+        url_parameters = {
+            "audience": "carto-cloud-native-api",
+            "scope": SCOPE,
+            "response_type": "code",
+            "redirect_uri": REDIRECT_URL,
+            "client_id": CLIENT_ID,
+            "code_challenge": challenge.replace("=", ""),
+            "code_challenge_method": "S256",
+            "state": state,
+        }
+        self.code_verifier = verifier
+        self.authorization_url = base_url + urlparse.urlencode(url_parameters)
 
     @staticmethod
     def force_stop():
@@ -179,7 +181,7 @@ class OAuthWorkflow(QThread):
         # we have to dummy a dummy request in order to abort the
         # blocking handle_request() loop
         # pylint: disable=missing-timeout
-        requests.get("http://127.0.0.1:{}".format(REDIRECT_PORT))
+        requests.get(REDIRECT_URL)
         # pylint: enable=missing-timeout
 
     def close_server(self):
@@ -195,20 +197,15 @@ class OAuthWorkflow(QThread):
         """
         Starts the server thread
         """
-        self.server = HTTPServer(("127.0.0.1", REDIRECT_PORT), _Handler)
+        self.server = HTTPServer(("127.0.0.1", REDIRECT_PORT), CallbackHandler)
         self.server.code_verifier = self.code_verifier
         self.server.access_token = None
-        self.server.expires_in = None
         self.server.error = None
         QDesktopServices.openUrl(QUrl(self.authorization_url))
 
         self.server.handle_request()
 
-        err = self.server.error
-        access_token = self.server.access_token
-        expires_in = self.server.expires_in
-
-        if err:
-            self.error_occurred.emit(err)
+        if self.server.access_token is None:
+            self.error_occurred.emit()
         else:
-            self.finished.emit(access_token, expires_in)
+            self.finished.emit(self.server.access_token)
