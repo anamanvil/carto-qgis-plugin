@@ -6,6 +6,7 @@ from qgis.PyQt.QtWidgets import QMenu, QAction
 from qgis.PyQt.QtGui import QIcon
 
 from carto.gui.dataitemprovider import DataItemProvider
+from carto.gui.authorizationsuccessdialog import AuthorizationSuccessDialog
 from carto.core.layers import LayerTracker
 from carto.core.api import CartoApi
 
@@ -60,5 +61,14 @@ class CartoPlugin(object):
         self.carto_menu = None
 
     def login(self):
-        if not AUTHORIZATION_MANAGER.is_authorized():
+        if AUTHORIZATION_MANAGER.is_authorized():
+            try:
+                CartoApi.instance().user()
+                dlg = AuthorizationSuccessDialog(iface.mainWindow())
+                dlg.exec_()
+                if dlg.logout:
+                    AUTHORIZATION_MANAGER.deauthorize()
+            except:
+                AUTHORIZATION_MANAGER.login()
+        else:
             AUTHORIZATION_MANAGER.login()

@@ -17,6 +17,7 @@ from carto.core.utils import (
     quote_for_provider,
     prepare_multipart_sql,
     prepare_geo_value_for_provider,
+    prepare_num_string,
 )
 from carto.gui.utils import waitcursor
 
@@ -37,6 +38,7 @@ class Changes(object):
         self.attributes_changed = []
         self.features_removed = []
         self.features_added = []
+        self.schema_has_changed = False
 
 
 class LayerTracker:
@@ -57,7 +59,6 @@ class LayerTracker:
 
         self.connected = {}
         self.layer_changes = {}
-        self.schema_has_changed = False
 
     def layer_removed(self, layer):
         pass
@@ -65,39 +66,47 @@ class LayerTracker:
     def layer_added(self, layer):
         if isinstance(layer, QgsVectorLayer):
             if is_carto_layer(layer):
-                layer.committedAttributeValuesChanges.connect(self.attributes_changed)
-                layer.committedGeometriesChanges.connect(self.geoms_changed)
-                layer.committedFeaturesRemoved.connect(self.features_removed)
-                layer.committedFeaturesAdded.connect(self.features_added)
                 upload_changes_func = partial(self.upload_changes, layer)
                 layer.afterCommitChanges.connect(upload_changes_func)
                 before_commit_func = partial(self._before_commit, layer)
                 layer.beforeCommitChanges.connect(before_commit_func)
-                layer.committedAttributesAdded.connect(self.schema_changed)
-                layer.committedAttributesDeleted.connect(self.schema_changed)
                 self.connected[layer.id()] = [upload_changes_func, before_commit_func]
 
-    def schema_changed(self, attrs):
-        self.schema_has_changed = True
+    def schema_changed(self, layer, attrs):
+        self.layer_changes[layer.id()].schema_has_changed = True
 
     def attributes_changed(self, layerid, values):
+        print("attributes changed")
         self.layer_changes[layerid].attributes_changed = values
 
     def geoms_changed(self, layerid, geoms):
+        print("geoms changed")
         self.layer_changes[layerid].geoms_changed = geoms
 
     def features_removed(self, layerid, features):
         self.layer_changes[layerid].features_removed = features
 
     def features_added(self, layerid, features):
+        print("features added")
         self.layer_changes[layerid].features_added = features
 
     def _before_commit(self, layer):
         self.layer_changes[layer.id()] = Changes()
-        self.schema_has_changed = False
+        buffer = layer.editBuffer()
+        buffer.committedAttributeValuesChanges.connect(self.attributes_changed)
+        buffer.committedGeometriesChanges.connect(self.geoms_changed)
+        buffer.committedFeaturesRemoved.connect(self.features_removed)
+        buffer.committedFeaturesAdded.connect(self.features_added)
+        schema_changed_func = partial(self.schema_changed, layer)
+        buffer.committedAttributesAdded.connect(schema_changed_func)
+        buffer.committedAttributesDeleted.connect(schema_changed_func)
+        self.connected[layer.id()].append(schema_changed_func)
 
     @waitcursor
     def upload_changes(self, layer):
+        print("uploading changes")
+        print(self.layer_changes)
+        print(layer.id())
         if not can_write(layer):
             iface.messageBar().pushMessage(
                 "No permission to write. Local changes will not be saved to the original table",
@@ -107,7 +116,7 @@ class LayerTracker:
             return
         metadata = layer_metadata(layer)
 
-        if self.schema_has_changed:
+        if self.layer_changes[layer.id()].schema_has_changed:
             metadata["schema_changed"] = True
             save_layer_metadata(layer, metadata)
 
@@ -140,7 +149,9 @@ class LayerTracker:
                 for field_idx, value in change.items():
                     field = layer.fields().at(field_idx)
                     field_name = field.name()
-                    value = value if field.isNumeric() else f"'{value}'"
+                    value = (
+                        prepare_num_string(value) if field.isNumeric() else f"'{value}'"
+                    )
                     statements.append(
                         f"UPDATE {quoted_fqn} SET {field_name} = {value} WHERE {pk_field} = {pk_value};"
                     )
@@ -158,6 +169,7 @@ class LayerTracker:
                 statements.append(
                     f"DELETE FROM {quoted_fqn} WHERE {pk_field} = {pk_value};"
                 )
+        print(self.layer_changes[layer.id()].features_added)
         if self.layer_changes[layer.id()].features_added:
             for feature in self.layer_changes[layer.id()].features_added:
                 fields = []
@@ -171,7 +183,9 @@ class LayerTracker:
                     field = feature.fields().at(i)
                     field_name = field.name()
                     value = feature[field.name()]
-                    value = value if field.isNumeric() else f"'{value}'"
+                    value = (
+                        prepare_num_string(value) if field.isNumeric() else f"'{value}'"
+                    )
                     fields.append(field_name)
                     values.append(value)
                 statements.append(
@@ -235,7 +249,7 @@ def fqn_from_layer(layer):
 
 
 def metadata_file(layer):
-    return layer.source() + ".cartometadata"
+    return layer.source().split("|")[0] + ".cartometadata"
 
 
 def layer_metadata(layer):

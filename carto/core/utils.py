@@ -143,3 +143,17 @@ def prepare_geo_value_for_provider(provider_type, geom):
             return f"ST_GEOGFROMWKB('{wkb}')"
         else:
             return f"ST_GEOMFROMWKB(DECODE('{wkb}', 'hex'))"
+
+
+def is_integer_num(n):
+    if isinstance(n, int):
+        return True
+    if isinstance(n, float):
+        return n.is_integer()
+    return False
+
+
+def prepare_num_string(n):
+    if is_integer_num(n):
+        return str(int(n))
+    return str(n)
