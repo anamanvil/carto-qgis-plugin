@@ -104,9 +104,6 @@ class LayerTracker:
 
     @waitcursor
     def upload_changes(self, layer):
-        print("uploading changes")
-        print(self.layer_changes)
-        print(layer.id())
         if not can_write(layer):
             iface.messageBar().pushMessage(
                 "No permission to write. Local changes will not be saved to the original table",
@@ -169,7 +166,6 @@ class LayerTracker:
                 statements.append(
                     f"DELETE FROM {quoted_fqn} WHERE {pk_field} = {pk_value};"
                 )
-        print(self.layer_changes[layer.id()].features_added)
         if self.layer_changes[layer.id()].features_added:
             for feature in self.layer_changes[layer.id()].features_added:
                 fields = []
