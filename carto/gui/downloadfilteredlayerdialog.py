@@ -13,9 +13,10 @@ from qgis.gui import QgsMessageBar
 
 from qgis.PyQt import uic
 from qgis.PyQt.QtCore import Qt
-from qgis.PyQt.QtWidgets import QDialog, QSizePolicy, QFileDialog
+from qgis.PyQt.QtWidgets import QDialog, QSizePolicy
 
 from carto.gui.extentselectionpanel import ExtentSelectionPanel
+from carto.core.utils import MAX_ROWS
 
 
 WIDGET, BASE = uic.loadUiType(
@@ -70,6 +71,8 @@ class DownloadFilteredLayerDialog(BASE, WIDGET):
         elif not self.grpLimit.isChecked():
             self.bar.pushMessage("Please select a filter", Qgis.Warning, duration=5)
             return
+        else:
+            statements.append("TRUE")
         self.where = " AND ".join(statements)
         if self.grpLimit.isChecked():
             limit = self.txtLimit.text()

@@ -125,6 +125,7 @@ class LayerTracker:
             )
             return
         statements = []
+        original_columns = [c["name"] for c in metadata["columns"]]
         pk_field = metadata["pk"]
         provider_type = metadata["provider_type"]
         geom_column = metadata["geom_column"]
@@ -178,12 +179,15 @@ class LayerTracker:
                 for i in range(feature.fields().count()):
                     field = feature.fields().at(i)
                     field_name = field.name()
-                    value = feature[field.name()]
-                    value = (
-                        prepare_num_string(value) if field.isNumeric() else f"'{value}'"
-                    )
-                    fields.append(field_name)
-                    values.append(value)
+                    if field_name in original_columns:
+                        value = feature[field.name()]
+                        value = (
+                            prepare_num_string(value)
+                            if field.isNumeric()
+                            else f"'{value}'"
+                        )
+                        fields.append(field_name)
+                        values.append(value)
                 statements.append(
                     f"INSERT INTO {quoted_fqn} ({','.join(fields)}) VALUES ({','.join(values)});"
                 )

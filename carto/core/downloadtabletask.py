@@ -231,8 +231,6 @@ class DownloadTableTask(QgsTask):
                 f"{geopackage_file}|layername={self.table.name}", self.table.name, "ogr"
             )
             # gpkglayer.setCrs(QgsCoordinateReferenceSystem("EPSG:4326"))
-            print(layer.crs())
-            print(gpkglayer.crs())
             save_layer_metadata(gpkglayer, layer_metadata)
             self.setProgress(100)
             self.layer = gpkglayer

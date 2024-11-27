@@ -19,10 +19,8 @@ from qgis.utils import iface
 from functools import partial
 
 from carto.core.connection import CartoConnection
-from carto.core.api import CartoApi
 from carto.core.layers import layer_metadata, save_layer_metadata
 from carto.core.utils import MAX_ROWS
-from carto.gui.settingsdialog import SettingsDialog
 from carto.gui.importdialog import ImportDialog
 from carto.gui.downloadfilteredlayerdialog import DownloadFilteredLayerDialog
 from carto.gui.selectprimarykeydialog import SelectPrimaryKeyDialog
