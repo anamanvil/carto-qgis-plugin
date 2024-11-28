@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <style>
+    body {
+      background-color: #001029;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    .content {
+      position: absolute;
+      top: 50%;
+      left: 8%;
+      transform: translateY(-50%);
+      z-index: 1;
+    }
+
+    .bg-image {
+      position: absolute;
+      top: 0;
+      right: 0;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .h4 {
+      color: #fff;
+      font-family: Arial, sans-serif;
+      font-weight: 600;
+      font-size: 32px;
+      line-height: 1.25;
+      letter-spacing: 0.15px;
+    }
+
+    .body1 {
+      color: #fff;
+      font-family: Arial, sans-serif;
+      font-weight: 400;
+      font-size: 16px;
+      line-height: 1.5;
+      letter-spacing: 0.4px;
+    }
+
+  </style>
+</head>
+
+<body>
+  <div class="content">
+    <img alt="carto-logo" src="carto-logo.png">
+    <p class="h4">QGIS has been successfully authorized.</p>
+    <p class="body1">You can now close this tab, and go back to the application.</p>
+  </div>
+
+  <img class="bg-image" alt="background-image" src="bg-image.png">
+</body>
+
+</html>

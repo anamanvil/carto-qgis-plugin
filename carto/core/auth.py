@@ -5,11 +5,13 @@ Original code at https://github.com/felt/qgis-plugin
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+import os
 import json
 import requests
 import hashlib
 import base64
 import urllib.parse as urlparse
+import urllib.request
 import secrets
 from qgis.PyQt.QtCore import QThread, pyqtSignal, QUrl
 from qgis.PyQt.QtGui import QDesktopServices
@@ -98,10 +100,35 @@ class CallbackHandler(BaseHTTPRequestHandler):
 
                 self.server.access_token = access_token
 
+                html_file = os.path.join(
+                    os.path.dirname(__file__),
+                    "..",
+                    "gui",
+                    "webpages",
+                    "authorized.html",
+                )
+                file_url = urlparse.urljoin(
+                    "file:", urllib.request.pathname2url(html_file)
+                )
                 self.send_response(200)
-                self.send_header("Content-Type", "text/plain")
+                self.send_header("Content-Type", "text/html")
                 self.end_headers()
-                self.wfile.write(b"Authorization finished. You can go back to QGIS.")
+                with open(html_file, "r") as f:
+                    html = f.read()
+                for img in ["carto-logo.png", "bg-image.png"]:
+                    img_path = os.path.join(
+                        os.path.dirname(__file__),
+                        "..",
+                        "gui",
+                        "webpages",
+                        img,
+                    )
+                    base64_img = base64.b64encode(open(img_path, "rb").read()).decode(
+                        "utf-8"
+                    )
+                    html = html.replace(img, f"data:image/png;base64,{base64_img}")
+
+                self.wfile.write(html.encode())
             else:
                 self.send_response(302)
                 self.send_header("Content-Type", "text/plain")
