@@ -25,6 +25,7 @@ class AuthorizationSuccessDialog(BASE, WIDGET):
         self.setupUi(self)
         self.labelMain.linkActivated.connect(self._link_activated)
         self.btnLogout.clicked.connect(self.logout_requested)
+        self.btnClose.clicked.connect(self.accept)
         self.logout = False
 
         pixmap = img("cartobanner.png")

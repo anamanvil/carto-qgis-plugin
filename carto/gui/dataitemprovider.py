@@ -71,17 +71,7 @@ class RootCollection(QgsDataCollectionItem):
         CartoConnection.instance().connections_changed.connect(self.refreshConnections)
 
     def createChildren(self):
-        try:
-            children = []
-            basemaps = BasemapsCollection()
-            children.append(basemaps)
-            if AUTHORIZATION_MANAGER.is_authorized():
-                connections = carto_connection.provider_connections()
-                for connection in connections:
-                    item = ConnectionItem(self, connection)
-                    children.append(item)
-        except Exception as e:
-            print(e)
+        children = [ConnectionsItem(), BasemapsCollection()]
         return children
 
     def actions(self, parent):
@@ -140,6 +130,20 @@ class BasemapItem(QgsDataItem):
         layer = QgsVectorTileLayer(uri, self.name)
         layer.loadDefaultStyle()
         QgsProject.instance().addMapLayer(layer)
+
+
+class ConnectionsItem(QgsDataCollectionItem):
+    def __init__(self):
+        QgsDataCollectionItem.__init__(self, None, "Connections", "/Connections")
+        self.setIcon(cartoIcon)
+
+    def createChildren(self):
+        children = []
+        connections = carto_connection.provider_connections()
+        for connection in connections:
+            item = ConnectionItem(self, connection)
+            children.append(item)
+        return children
 
 
 class ConnectionItem(QgsDataCollectionItem):
@@ -229,7 +233,7 @@ class SchemaItem(QgsDataCollectionItem):
             dialog.schema.clear_tables_cache()
 
 
-MAX_TABLE_SIZE = 10
+MAX_TABLE_SIZE = 50
 
 
 class TableItem(QgsDataItem):

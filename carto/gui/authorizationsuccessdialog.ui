@@ -95,7 +95,7 @@
     </spacer>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0">
+    <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0,0">
      <property name="rightMargin">
       <number>12</number>
      </property>
@@ -111,6 +111,13 @@
         </size>
        </property>
       </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnClose">
+       <property name="text">
+        <string>Close</string>
+       </property>
+      </widget>
      </item>
      <item>
       <widget class="QPushButton" name="btnLogout">
