@@ -107,9 +107,6 @@ class CallbackHandler(BaseHTTPRequestHandler):
                     "webpages",
                     "authorized.html",
                 )
-                file_url = urlparse.urljoin(
-                    "file:", urllib.request.pathname2url(html_file)
-                )
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html")
                 self.end_headers()
