@@ -45,6 +45,7 @@ redshiftIcon = icon("redshift.svg")
 databricksIcon = icon("databricks.svg")
 postgresIcon = icon("postgres.svg")
 tableIcon = icon("table.svg")
+basemapIcon = icon("basemap.svg")
 
 
 class DataItemProvider(QgsDataItemProvider):
@@ -92,7 +93,7 @@ BASEMAP_URL = (
 class BasemapsCollection(QgsDataCollectionItem):
     def __init__(self):
         QgsDataCollectionItem.__init__(self, None, "Basemaps", "/Basemaps")
-        self.setIcon(cartoIcon)
+        self.setIcon(basemapIcon)
 
     def createChildren(self):
         children = []
@@ -107,7 +108,7 @@ class BasemapItem(QgsDataItem):
         QgsDataItem.__init__(
             self, QgsDataItem.Custom, parent, name, "Carto/basemaps/" + name
         )
-        self.setIcon(cartoIcon)
+        self.setIcon(basemapIcon)
         self.url = url
         self.style = style
         self.name = name
