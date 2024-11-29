@@ -1,6 +1,6 @@
 # CARTO QGIS Plugin
 
-A [QGIS](https://qgis.org) plugin to integrate and work with [CARTO](https://carto.com) data warehouse providers.
+A [QGIS](https://qgis.org) plugin plugin to access, visualize, and edit geospatial data in your data warehouse via [CARTO](https://carto.com). 
 
 [![License: GPL v2](https://img.shields.io/badge/License-GPLv2-blue.svg)](./LICENSE.md)
 
