@@ -31,13 +31,8 @@ SCOPE = " ".join(
         "profile",
         "email",
         "read:current_user",
-        "update:current_user",
         "read:connections",
         "write:connections",
-        "read:maps",
-        "write:maps",
-        "read:account",
-        "admin:account",
     ]
 )
 
