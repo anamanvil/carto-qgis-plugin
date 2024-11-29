@@ -1,12 +1,12 @@
-# Carto QGIS Plugin
+# CARTO QGIS Plugin
 
-A [QGIS](https://qgis.org) plugin to integrate and work with [Carto](https://carto.com) data providers.
+A [QGIS](https://qgis.org) plugin to integrate and work with [CARTO](https://carto.com) data warehouse providers.
 
 [![License: GPL v2](https://img.shields.io/badge/License-GPLv2-blue.svg)](./LICENSE.md)
 
 ## Installation
 
-The Carto plugin is available in the [QGIS Plugins Repository](https://plugins.qgis.org/plugins/carto/). To install the latest version, use the QGIS Plugin Manager and search for the Carto plugin.
+The CARTO plugin is available in the [QGIS Plugins Repository](https://plugins.qgis.org/plugins/carto/). To install the latest version, use the QGIS Plugin Manager and search for the CARTO plugin.
 
 Alternatively, you can get the latest version from the [release page](https://github.com/koordinates/carto-qgis-plugin/releases/latest), then open the QGIS Plugin manager and install the downloaded zip file.
 
