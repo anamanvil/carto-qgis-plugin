@@ -35,7 +35,7 @@ class AuthorizationSuccessDialog(BASE, WIDGET):
 
     def _link_activated(self, link: str):
         if link == "documentation":
-            url = QUrl("https://docs.carto.com")
+            url = QUrl("https://docs.carto.com/data-and-analysis/carto-qgis-plugin")
             QDesktopServices.openUrl(url)
 
     def logout_requested(self):

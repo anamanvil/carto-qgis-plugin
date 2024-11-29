@@ -1,14 +1,14 @@
 [general]
-name=Carto
+name=CARTO
 qgisMinimumVersion=3.16
-description=Work with Carto connections from QGIS.
+description=Work with CARTO connections from QGIS.
 
 about=The CARTO Plugin enables QGIS users to quickly access, visualize, and edit spatial data hosted in the leading cloud data warehouse platforms through CARTO. The plugin provides a seamless interface that allows users to browse, query, and modify spatial data directly within QGIS.
 
     The CARTO Plugin connects to multiple cloud data warehouses including Google BigQuery, Snowflake, AWS Redshift, Databricks, and PostgreSQL.
 
 version=1.0.0
-author=Carto
+author=CARTO
 email=support@carto.com
 tags=versioning, data
 homepage=https://kartproject.org
