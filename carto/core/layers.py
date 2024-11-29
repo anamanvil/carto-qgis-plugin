@@ -76,18 +76,15 @@ class LayerTracker:
         self.layer_changes[layer.id()].schema_has_changed = True
 
     def attributes_changed(self, layerid, values):
-        print("attributes changed")
         self.layer_changes[layerid].attributes_changed = values
 
     def geoms_changed(self, layerid, geoms):
-        print("geoms changed")
         self.layer_changes[layerid].geoms_changed = geoms
 
     def features_removed(self, layerid, features):
         self.layer_changes[layerid].features_removed = features
 
     def features_added(self, layerid, features):
-        print("features added")
         self.layer_changes[layerid].features_added = features
 
     def _before_commit(self, layer):

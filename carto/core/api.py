@@ -59,7 +59,6 @@ class CartoApi(QObject):
         return response.json()
 
     def execute_query(self, connectionname, query):
-        print(query)
         url = urljoin(SQL_API_URL, f"v3/sql/{connectionname}/query")
         query = f"""
         -- {uuid.uuid4()}
@@ -75,7 +74,6 @@ class CartoApi(QObject):
         return _json
 
     def execute_query_post(self, connectionname, query):
-        print(query)
         url = urljoin(SQL_API_URL, f"v3/sql/{connectionname}/query")
         response = requests.post(
             url,
