@@ -48,16 +48,12 @@ class CartoConnection(QObject):
         return self._connections
 
     def clear_connections_cache(self):
-        print("clear_connections_cache")
         self._connections = None
 
     def _auth_status_changed(self, auth_status):
         try:
-            print("auth_status", auth_status)
             self.clear_connections_cache()
-            print("connections_changed")
             self.connections_changed.emit()
-            print("connections_changed emitted")
         except Exception as e:
             print(e)
 

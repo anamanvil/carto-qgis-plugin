@@ -137,7 +137,7 @@ class ConnectionItem(QgsDataCollectionItem):
             self.setIcon(snowflakeIcon)
         elif connection.provider_type == "redshift":
             self.setIcon(redshiftIcon)
-        elif connection.provider_type == "databricks":
+        elif "databricks" in connection.provider_type:
             self.setIcon(databricksIcon)
         elif connection.provider_type == "postgres":
             self.setIcon(postgresIcon)
