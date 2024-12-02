@@ -6,7 +6,6 @@ from qgis.gui import QgsMessageBar
 from qgis.PyQt import uic
 from qgis.PyQt.QtWidgets import QDialog, QSizePolicy, QFileDialog
 
-from carto.core.connection import CartoConnection
 
 WIDGET, BASE = uic.loadUiType(
     os.path.join(os.path.dirname(__file__), "selectprimarykeydialog.ui")

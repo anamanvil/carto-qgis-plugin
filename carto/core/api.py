@@ -23,19 +23,10 @@ USER_URL = "https://accounts.app.carto.com/users/me"
 
 class CartoApi(QObject):
 
-    __instance = None
     token = None
-
-    @staticmethod
-    def instance():
-        if CartoApi.__instance is None:
-            CartoApi.__instance = CartoApi()
-        return CartoApi.__instance
 
     def __init__(self):
         super().__init__()
-        if CartoApi.__instance is not None:
-            raise Exception("Singleton class")
 
     def set_token(self, token):
         self.token = token
@@ -85,15 +76,18 @@ class CartoApi(QObject):
         return _json
 
     def connections(self):
-        connections = self.get_json("connections")
-        return [
-            {
-                "id": connection["id"],
-                "name": connection["name"],
-                "provider_type": connection["provider_id"],
-            }
-            for connection in connections
-        ]
+        try:
+            connections = self.get_json("connections")
+            return [
+                {
+                    "id": connection["id"],
+                    "name": connection["name"],
+                    "provider_type": connection["provider_id"],
+                }
+                for connection in connections
+            ]
+        except Exception as e:
+            return []
 
     def databases(self, connectionid):
         databases = self.get_json(f"connections/{connectionid}/resources")["children"]
@@ -125,3 +119,6 @@ class CartoApi(QObject):
         return self.get_json(
             f"connections/{connectionid}/resources/{databaseid}.{schemaid}.{tableid}"
         )
+
+
+CARTO_API = CartoApi()

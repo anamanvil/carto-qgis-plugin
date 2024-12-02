@@ -17,7 +17,7 @@ from carto.core.utils import (
 )
 
 from carto.core.api import (
-    CartoApi,
+    CARTO_API,
 )
 
 from qgis.core import (
@@ -62,7 +62,7 @@ class DownloadTableTask(QgsTask):
                 fqn, self.table.schema.database.connection.provider_type
             )
             query = f"(SELECT * FROM {quoted_fqn} WHERE {self.where}"
-            ret = CartoApi.instance().execute_query(
+            ret = CARTO_API.execute_query(
                 self.table.schema.database.connection.name,
                 f"CALL cartobq.us.EXPORT_WITH_GDAL('''{query}''','GPKG',NULL,'{self.table.tableid}');",
             )
@@ -246,7 +246,7 @@ class DownloadTableTask(QgsTask):
             f"{self.table.schema.database.databaseid}.{self.table.schema.schemaid}.{self.table.tableid}",
             self.table.schema.database.connection.provider_type,
         )
-        return CartoApi.instance().execute_query(
+        return CARTO_API.execute_query(
             self.table.schema.database.connection.name,
             f"""SELECT * FROM {fqn}
                 WHERE {where} ;""",
@@ -257,8 +257,13 @@ class DownloadTableTask(QgsTask):
             f"{self.table.schema.database.databaseid}.{self.table.schema.schemaid}.{self.table.tableid}",
             self.table.schema.database.connection.provider_type,
         )
-        return CartoApi.instance().execute_query(
+        col_name = (
+            "ROW_COUNT"
+            if self.table.schema.database.connection.provider_type == "snowflake"
+            else "row_count"
+        )
+        return CARTO_API.execute_query(
             self.table.schema.database.connection.name,
             f"""SELECT COUNT(*) AS row_count FROM {fqn}
                 WHERE {self.where} ;""",
-        )["rows"][0]["row_count"]
+        )["rows"][0][col_name]

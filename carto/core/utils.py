@@ -55,7 +55,7 @@ def prepare_multipart_sql(statements, provider, fqn):
             CREATE OR REPLACE PROCEDURE ${proc_name}()
                 AS $$
                 BEGIN
-                  {query}
+                  {joined}
                 END;
                 $$ LANGUAGE plpgsql;
 

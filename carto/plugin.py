@@ -1,24 +1,18 @@
 import os
 
-from qgis.core import QgsProject, QgsApplication, Qgis
+from qgis.core import QgsProject, QgsApplication
 
 from qgis.PyQt.QtWidgets import QMenu, QAction
-from qgis.PyQt.QtGui import QIcon
 
 from carto.gui.dataitemprovider import DataItemProvider
 from carto.gui.authorizationsuccessdialog import AuthorizationSuccessDialog
 from carto.core.layers import LayerTracker
-from carto.core.api import CartoApi
+from carto.core.api import CARTO_API
 
 from qgis.utils import iface
 
 from carto.gui.authorization_manager import AUTHORIZATION_MANAGER
-
-pluginPath = os.path.dirname(__file__)
-
-
-def icon(f):
-    return QIcon(os.path.join(pluginPath, "gui", "img", f))
+from carto.gui.utils import icon
 
 
 CARTO_ICON = icon("carto.svg")
@@ -31,9 +25,10 @@ class CartoPlugin(object):
         self.dip = None
 
     def initGui(self):
-        web_menu = self.iface.webMenu()
+        plugins_menu = self.iface.pluginMenu()
         self.carto_menu = QMenu("CARTO")
-        web_menu.addMenu(self.carto_menu)
+        self.carto_menu.setIcon(CARTO_ICON)
+        plugins_menu.addMenu(self.carto_menu)
 
         self.carto_menu.addAction(AUTHORIZATION_MANAGER.login_action)
 
@@ -63,7 +58,7 @@ class CartoPlugin(object):
     def login(self):
         if AUTHORIZATION_MANAGER.is_authorized():
             try:
-                CartoApi.instance().user()
+                CARTO_API.user()
                 dlg = AuthorizationSuccessDialog(iface.mainWindow())
                 dlg.exec_()
                 if dlg.logout:

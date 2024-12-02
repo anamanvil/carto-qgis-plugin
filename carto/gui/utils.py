@@ -2,6 +2,7 @@ import os
 
 from qgis.PyQt.QtWidgets import QApplication
 from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtGui import QIcon
 
 
 def waitcursor(method):
@@ -15,3 +16,10 @@ def waitcursor(method):
             QApplication.restoreOverrideCursor()
 
     return func
+
+
+_path = os.path.dirname(__file__)
+
+
+def icon(f):
+    return QIcon(os.path.join(_path, "img", f))

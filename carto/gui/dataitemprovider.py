@@ -18,7 +18,7 @@ from qgis.core import (
 from qgis.utils import iface
 from functools import partial
 
-from carto.core.connection import CartoConnection
+from carto.core.connection import CARTO_CONNECTION
 from carto.core.layers import layer_metadata, save_layer_metadata
 from carto.core.utils import MAX_ROWS
 from carto.gui.importdialog import ImportDialog
@@ -26,14 +26,7 @@ from carto.gui.downloadfilteredlayerdialog import DownloadFilteredLayerDialog
 from carto.gui.selectprimarykeydialog import SelectPrimaryKeyDialog
 from carto.gui.authorization_manager import AUTHORIZATION_MANAGER
 from carto.core.downloadtabletask import DownloadTableTask
-
-carto_connection = CartoConnection()
-
-pluginPath = os.path.dirname(__file__)
-
-
-def icon(f):
-    return QIcon(os.path.join(pluginPath, "img", f))
+from carto.gui.utils import icon
 
 
 cartoIcon = icon("carto.svg")
@@ -62,22 +55,6 @@ class DataItemProvider(QgsDataItemProvider):
         root = RootCollection()
         sip.transferto(root, None)
         return root
-
-
-class RootCollection(QgsDataCollectionItem):
-
-    def __init__(self):
-        QgsDataCollectionItem.__init__(self, None, "CARTO", "/Carto")
-        self.setIcon(cartoIcon)
-        CartoConnection.instance().connections_changed.connect(self.refreshConnections)
-
-    def createChildren(self):
-        children = [ConnectionsItem(), BasemapsCollection()]
-        return children
-
-    def actions(self, parent):
-        actions = [AUTHORIZATION_MANAGER.login_action]
-        return actions
 
 
 BASEMAP_STYLES = {
@@ -137,12 +114,14 @@ class ConnectionsItem(QgsDataCollectionItem):
     def __init__(self):
         QgsDataCollectionItem.__init__(self, None, "Connections", "/Connections")
         self.setIcon(cartoIcon)
+        self.populate()
 
     def createChildren(self):
         children = []
-        connections = carto_connection.provider_connections()
+        connections = CARTO_CONNECTION.provider_connections()
         for connection in connections:
             item = ConnectionItem(self, connection)
+            sip.transferto(item, self)
             children.append(item)
         return children
 
@@ -350,3 +329,21 @@ class TableItem(QgsDataItem):
                     duration=10,
                 )
         self.tasks.remove(task)
+
+
+class RootCollection(QgsDataCollectionItem):
+
+    def __init__(self):
+        QgsDataCollectionItem.__init__(self, None, "CARTO", "/Carto/root")
+        self.setIcon(cartoIcon)
+        # CARTO_CONNECTION.connections_changed.connect(self.connectionsChanged)
+
+    def createChildren(self):
+        self.connectionsItem = ConnectionsItem()
+        self.basemapsItem = BasemapsCollection()
+        children = [self.connectionsItem, self.basemapsItem]
+        return children
+
+    def actions(self, parent):
+        actions = [AUTHORIZATION_MANAGER.login_action]
+        return actions

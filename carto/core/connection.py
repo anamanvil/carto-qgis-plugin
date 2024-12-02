@@ -1,6 +1,5 @@
-import os
-from carto.core.api import CartoApi
-from carto.core.layers import filepath_for_table, save_layer_metadata
+from carto.core.api import CARTO_API
+from carto.core.layers import filepath_for_table
 from carto.core.utils import (
     quote_for_provider,
     prepare_multipart_sql,
@@ -23,40 +22,47 @@ from qgis.utils import iface
 
 class CartoConnection(QObject):
 
-    __instance = None
     _connections = None
 
     connections_changed = pyqtSignal()
 
-    @staticmethod
-    def instance():
-        if CartoConnection.__instance is None:
-            CartoConnection.__instance = CartoConnection()
-        return CartoConnection.__instance
-
     def __init__(self):
         super().__init__()
-        if CartoConnection.__instance is not None:
-            raise Exception("Singleton class")
         AUTHORIZATION_MANAGER.status_changed.connect(self._auth_status_changed)
 
     @waitcursor
     def provider_connections(self):
         if self._connections is None:
-            connections = CartoApi.instance().connections()
-            self._connections = [
-                ProviderConnection(
-                    connection["id"], connection["name"], connection["provider_type"]
-                )
-                for connection in connections
-            ]
-        self.connections_changed.emit()
+            try:
+                connections = CARTO_API.connections()
+                self._connections = [
+                    ProviderConnection(
+                        connection["id"],
+                        connection["name"],
+                        connection["provider_type"],
+                    )
+                    for connection in connections
+                ]
+            except Exception as e:
+                self._connections = []
         return self._connections
 
+    def clear_connections_cache(self):
+        print("clear_connections_cache")
+        self._connections = None
+
     def _auth_status_changed(self, auth_status):
-        if auth_status == AuthState.NotAuthorized:
-            self._connections = None
-        self.connections_changed.emit()
+        try:
+            print("auth_status", auth_status)
+            self.clear_connections_cache()
+            print("connections_changed")
+            self.connections_changed.emit()
+            print("connections_changed emitted")
+        except Exception as e:
+            print(e)
+
+
+CARTO_CONNECTION = CartoConnection()
 
 
 class ProviderConnection:
@@ -70,7 +76,7 @@ class ProviderConnection:
     @waitcursor
     def databases(self):
         if self._databases is None:
-            databases = CartoApi.instance().databases(self.connectionid)
+            databases = CARTO_API.databases(self.connectionid)
             self._databases = [
                 Database(database["id"], database["name"], self)
                 for database in databases
@@ -89,9 +95,7 @@ class Database:
     @waitcursor
     def schemas(self):
         if self._schemas is None:
-            schemas = CartoApi.instance().schemas(
-                self.connection.connectionid, self.databaseid
-            )
+            schemas = CARTO_API.schemas(self.connection.connectionid, self.databaseid)
             self._schemas = [
                 Schema(schema["id"], schema["name"], self) for schema in schemas
             ]
@@ -157,9 +161,9 @@ class Schema:
                         AND g.table_name = s.table_name
                     ORDER BY g.table_name;
                 """
-                tables = CartoApi.instance().execute_query(
-                    self.database.connection.name, query
-                )["rows"]
+                tables = CARTO_API.execute_query(self.database.connection.name, query)[
+                    "rows"
+                ]
                 self._tables = [
                     Table(
                         table["table_name"],
@@ -170,7 +174,7 @@ class Schema:
                     for table in tables
                 ]
             else:
-                tables = CartoApi.instance().tables(
+                tables = CARTO_API.tables(
                     self.database.connection.connectionid,
                     self.database.databaseid,
                     self.schemaid,
@@ -201,7 +205,7 @@ class Schema:
                 [sql], self.database.connection.provider_type, fqn
             )
             try:
-                CartoApi.instance().execute_query(self.database.connection.name, sql)
+                CARTO_API.execute_query(self.database.connection.name, sql)
                 self._can_write = True
             except Exception as e:
                 self._can_write = False
@@ -262,7 +266,7 @@ class Table:
     @waitcursor
     def table_info(self):
         if self._table_info is None:
-            self._table_info = CartoApi.instance().table_info(
+            self._table_info = CARTO_API.table_info(
                 self.schema.database.connection.connectionid,
                 self.schema.database.databaseid,
                 self.schema.schemaid,
@@ -326,9 +330,7 @@ class Table:
                     """
         else:
             return None
-        ret = CartoApi.instance().execute_query(
-            self.schema.database.connection.name, sql
-        )
+        ret = CARTO_API.execute_query(self.schema.database.connection.name, sql)
         if len(ret["rows"]) > 0:
             return ret["rows"][0]["column_name"]
         return None
@@ -339,7 +341,7 @@ class Table:
             f"{self.schema.database.databaseid}.{self.schema.schemaid}.{self.tableid}",
             self.schema.database.connection.provider_type,
         )
-        return CartoApi.instance().execute_query(
+        return CARTO_API.execute_query(
             self.schema.database.connection.name,
             f"""SELECT * FROM {fqn}
                 WHERE {where} ;""",

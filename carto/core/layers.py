@@ -9,9 +9,7 @@ from qgis.core import (
     QgsApplication,
 )
 
-from qgis.PyQt.QtCore import Qt
-
-from carto.core.api import CartoApi
+from carto.core.api import CARTO_API
 from carto.core.logging import error
 from carto.core.utils import (
     quote_for_provider,
@@ -191,7 +189,7 @@ class LayerTracker:
         connection = connection_from_layer(layer)
         try:
             sql = prepare_multipart_sql(statements, provider_type, fqn)
-            CartoApi.instance().execute_query(connection, sql)
+            CARTO_API.execute_query(connection, sql)
             iface.messageBar().pushMessage(
                 "Layer changes uploaded", level=Qgis.Success, duration=5
             )

@@ -10,7 +10,7 @@ from carto.core.utils import (
     prepare_geo_value_for_provider,
     prepare_multipart_sql,
 )
-from carto.core.api import CartoApi
+from carto.core.api import CARTO_API
 
 from qgis.PyQt.QtCore import QVariant
 
@@ -51,7 +51,7 @@ class ImportLayerTask(QgsTask):
                 {sql_create}
                 """
             sql_create = prepare_multipart_sql([sql_create], self.provider_type, fqn)
-            CartoApi.instance().execute_query(self.connection_name, sql_create)
+            CARTO_API.execute_query(self.connection_name, sql_create)
             self.setProgress(1)
             insert_statements = []
 
@@ -88,7 +88,7 @@ class ImportLayerTask(QgsTask):
             for i in range(num_batches):
                 if self.isCanceled():
                     return False
-                CartoApi.instance().execute_query_post(
+                CARTO_API.execute_query_post(
                     self.connection_name,
                     prepare_multipart_sql(
                         insert_statements[i * batch_size : (i + 1) * batch_size],
@@ -98,7 +98,7 @@ class ImportLayerTask(QgsTask):
                 )
                 self.setProgress(int(i / num_batches * 100))
             if (num_batches * batch_size) < len(insert_statements):
-                CartoApi.instance().execute_query_post(
+                CARTO_API.execute_query_post(
                     self.connection_name,
                     prepare_multipart_sql(
                         insert_statements[num_batches * batch_size :],

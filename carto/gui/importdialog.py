@@ -6,7 +6,7 @@ from qgis.gui import QgsMessageBar
 from qgis.PyQt import uic
 from qgis.PyQt.QtWidgets import QDialog, QSizePolicy, QFileDialog
 
-from carto.core.connection import CartoConnection
+from carto.core.connection import CARTO_CONNECTION
 
 WIDGET, BASE = uic.loadUiType(
     os.path.join(os.path.dirname(__file__), "importdialog.ui")
@@ -35,7 +35,7 @@ class ImportDialog(BASE, WIDGET):
         self.schema = None
 
     def initGui(self, connection, database, schema):
-        connections = CartoConnection.instance().provider_connections()
+        connections = CARTO_CONNECTION.provider_connections()
         self.comboConnection.addItems([connection.name for connection in connections])
         idx = self.comboConnection.findText(connection.name)
         self.comboConnection.setCurrentIndex(idx if idx != -1 else 0)
@@ -49,7 +49,7 @@ class ImportDialog(BASE, WIDGET):
             self.comboSchema.setCurrentIndex(idx if idx != -1 else 0)
 
     def connectionChanged(self, index):
-        connection = CartoConnection.instance().provider_connections()[index]
+        connection = CARTO_CONNECTION.provider_connections()[index]
         self.comboDatabase.clear()
         self.comboSchema.clear()
         self.comboDatabase.addItems(
@@ -57,11 +57,9 @@ class ImportDialog(BASE, WIDGET):
         )
 
     def databaseChanged(self, index):
-        database = (
-            CartoConnection.instance()
-            .provider_connections()[self.comboConnection.currentIndex()]
-            .databases()[index]
-        )
+        database = CARTO_CONNECTION.provider_connections()[
+            self.comboConnection.currentIndex()
+        ].databases()[index]
         self.comboSchema.clear()
         self.comboSchema.addItems([schema.name for schema in database.schemas()])
 
@@ -81,8 +79,7 @@ class ImportDialog(BASE, WIDGET):
                 self.tablename = os.path.basename(self.txtFile.filePath()).split(".")[0]
             self.tablename = "".join([c for c in self.tablename if c.isalnum()])
         self.schema = (
-            CartoConnection.instance()
-            .provider_connections()[self.comboConnection.currentIndex()]
+            CARTO_CONNECTION.provider_connections()[self.comboConnection.currentIndex()]
             .databases()[self.comboDatabase.currentIndex()]
             .schemas()[self.comboSchema.currentIndex()]
         )

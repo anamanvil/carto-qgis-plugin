@@ -16,7 +16,8 @@ from carto.gui.authorizedialog import AuthorizeDialog
 from carto.gui.authorizationsuccessdialog import AuthorizationSuccessDialog
 from carto.core.auth import OAuthWorkflow
 from carto.core.enums import AuthState
-from carto.core.api import CartoApi
+from carto.core.api import CARTO_API
+from carto.gui.utils import icon
 
 AUTH_CONFIG_ID = "carto_auth_id"
 AUTH_CONFIG_EXPIRY = "carto_auth_expiry"
@@ -44,6 +45,7 @@ class AuthorizationManager(QObject):
         self.queued_callbacks = []
 
         self.login_action = QAction(self.tr("Log In…"))
+        self.login_action.setIcon(icon("carto.svg"))
         self.login_action.triggered.connect(self.login)
 
     def _set_status(self, status: AuthState):
@@ -99,8 +101,9 @@ class AuthorizationManager(QObject):
         """
         Deauthorizes the client
         """
+        CARTO_API.set_token(None)
+        print("Deauthorized")
         self._set_status(AuthState.NotAuthorized)
-        CartoApi.instance().set_token(None)
 
     def attempt_authorize(self):
         self.show_authorization_dialog()
@@ -183,7 +186,7 @@ class AuthorizationManager(QObject):
         """
         self._cleanup_messages()
 
-        CartoApi.instance().set_token(token)
+        CARTO_API.set_token(token)
         self._set_status(AuthState.Authorized)
         iface.messageBar().pushSuccess(self.tr("Carto"), self.tr("Authorized"))
 
