@@ -262,15 +262,16 @@ class TableItem(QgsDataItem):
         dlg.show()
         ret = dlg.exec_()
         if ret == QDialog.Accepted:
-            self._add_layer(dlg.where)
+            self._add_layer(dlg.where, dlg.limit)
 
     def add_layer(self):
         self._add_layer(None)
 
-    def _add_layer(self, where=None):
-        where = where or f"TRUE LIMIT {MAX_ROWS}"
+    def _add_layer(self, where=None, limit=None):
+        where = where or "TRUE"
+        limit = limit or MAX_ROWS
 
-        task = DownloadTableTask(self.table, where)
+        task = DownloadTableTask(self.table, where, limit)
 
         def _show_terminated_message():
             iface.messageBar().pushMessage(

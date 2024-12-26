@@ -70,6 +70,8 @@ def prepare_multipart_sql(statements, provider, fqn):
                 END;
                 $$;
                 """
+    elif provider == "databricks":
+        return joined
     else:
         return f"""
             BEGIN

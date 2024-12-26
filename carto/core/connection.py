@@ -74,7 +74,7 @@ class ProviderConnection:
         if self._databases is None:
             databases = CARTO_API.databases(self.connectionid)
             self._databases = [
-                Database(database["id"], database["name"], self)
+                Database(database["id"], database["name"].replace("`", ""), self)
                 for database in databases
             ]
         return self._databases

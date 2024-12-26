@@ -31,6 +31,7 @@ class DownloadFilteredLayerDialog(BASE, WIDGET):
         self.setupUi(self)
         self.table = table
         self.where = None
+        self.limit = None
 
         self.bar = QgsMessageBar()
         self.bar.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
@@ -81,7 +82,7 @@ class DownloadFilteredLayerDialog(BASE, WIDGET):
                     "Maximum number of rows is required", Qgis.Warning, duration=5
                 )
                 return
-            self.where += f" LIMIT {limit}"
+            self.limit = limit
         else:
-            self.where += f" LIMIT {MAX_ROWS}"
+            self.limit = MAX_ROWS
         self.accept()

@@ -55,6 +55,7 @@ class CartoApi(QObject):
         -- {uuid.uuid4()}
         {query}
         """
+        print(query)
         response = requests.get(
             url,
             headers={"Authorization": f"Bearer {self.token}"},
@@ -62,6 +63,7 @@ class CartoApi(QObject):
         )
         response.raise_for_status()
         _json = response.json()
+        print(_json)
         return _json
 
     def execute_query_post(self, connectionname, query):

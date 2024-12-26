@@ -37,15 +37,12 @@ from qgis.PyQt.QtCore import QVariant
 
 
 class DownloadTableTask(QgsTask):
-    def __init__(
-        self,
-        table,
-        where,
-    ):
+    def __init__(self, table, where, limit):
         super().__init__(f"Download table {table.name}", QgsTask.CanCancel)
         self.exception = None
         self.table = table
         self.where = where
+        self.limit = limit
         self.layer = None
 
     def run(self):
@@ -99,8 +96,12 @@ class DownloadTableTask(QgsTask):
             if row_count == 0:
                 self.layer = None
                 return True
+            max_rows = min(self.limit or row_count, row_count)
             while True:
-                where_with_offset = f"{self.where} OFFSET {offset}"
+                limit = (
+                    offset + batch_size if offset + batch_size < max_rows else max_rows
+                )
+                where_with_offset = f"{self.where} LIMIT {limit} OFFSET {offset}"
                 data = self.get_rows(where_with_offset)
                 rows = data.get("rows", [])
                 if offset == 0:
