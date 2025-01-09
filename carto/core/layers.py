@@ -2,6 +2,10 @@ import os
 import json
 from functools import partial
 
+from qgis.PyQt.QtWidgets import QApplication
+from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtGui import QIcon
+
 from qgis.utils import iface
 from qgis.core import (
     Qgis,
@@ -18,7 +22,7 @@ from carto.core.utils import (
     prepare_num_string,
 )
 from carto.gui.utils import waitcursor
-
+from carto.gui.selectprimarykeydialog import SelectPrimaryKeyDialog
 
 pluginPath = os.path.dirname(__file__)
 
@@ -106,6 +110,7 @@ class LayerTracker:
                 duration=5,
             )
             return
+
         metadata = layer_metadata(layer)
 
         if self.layer_changes[layer.id()].schema_has_changed:
@@ -119,18 +124,30 @@ class LayerTracker:
                 duration=5,
             )
             return
-        statements = []
+
         original_columns = [c["name"] for c in metadata["columns"]]
         pk_field = metadata["pk"]
+        if not pk_field:
+            dialog = SelectPrimaryKeyDialog(original_columns)
+            try:
+                QApplication.setOverrideCursor(Qt.ArrowCursor)
+                dialog.exec_()
+            finally:
+                QApplication.restoreOverrideCursor()
+            if dialog.pk:
+                metadata["pk"] = dialog.pk
+                save_layer_metadata(layer, metadata)
+            else:
+                iface.messageBar().pushMessage(
+                    "Layer has no Primary Key: changes will not be uploaded upstream",
+                    level=Qgis.Warning,
+                    duration=5,
+                )
+                return
+
+        statements = []
         provider_type = metadata["provider_type"]
         geom_column = metadata["geom_column"]
-        if not pk_field:
-            iface.messageBar().pushMessage(
-                "Layer has no Primary Key: changes will not be uploaded upstream",
-                level=Qgis.Warning,
-                duration=5,
-            )
-            return
         fqn = fqn_from_layer(layer)
         quoted_fqn = quote_for_provider(fqn, provider_type)
         geom_column = geom_column_from_layer(layer)

@@ -1,4 +1,3 @@
-import os
 import sip
 from json2html import json2html
 from qgis.PyQt.QtGui import QIcon
@@ -19,11 +18,10 @@ from qgis.utils import iface
 from functools import partial
 
 from carto.core.connection import CARTO_CONNECTION
-from carto.core.layers import layer_metadata, save_layer_metadata
+from carto.core.layers import layer_metadata
 from carto.core.utils import MAX_ROWS
 from carto.gui.importdialog import ImportDialog
 from carto.gui.downloadfilteredlayerdialog import DownloadFilteredLayerDialog
-from carto.gui.selectprimarykeydialog import SelectPrimaryKeyDialog
 from carto.gui.authorization_manager import AUTHORIZATION_MANAGER
 from carto.core.downloadtabletask import DownloadTableTask
 from carto.gui.utils import icon
@@ -315,20 +313,6 @@ class TableItem(QgsDataItem):
             )
             return
 
-        if not metadata["pk"]:
-            columns = [c["name"] for c in metadata["columns"]]
-            dialog = SelectPrimaryKeyDialog(columns)
-            dialog.exec_()
-            if dialog.pk:
-                metadata["pk"] = dialog.pk
-                save_layer_metadata(layer, metadata)
-            else:
-                iface.messageBar().pushMessage(
-                    "Missing PK",
-                    "The table has no PK defined. Local changes will not be saved to the original table",
-                    level=Qgis.Warning,
-                    duration=10,
-                )
         self.tasks.remove(task)
 
 
