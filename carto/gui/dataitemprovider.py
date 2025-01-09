@@ -68,8 +68,8 @@ BASEMAP_URL = (
 
 
 class BasemapsCollection(QgsDataCollectionItem):
-    def __init__(self):
-        QgsDataCollectionItem.__init__(self, None, "Basemaps", "/Basemaps")
+    def __init__(self, parent):
+        QgsDataCollectionItem.__init__(self, parent, "Basemaps", "/Basemaps")
         self.setIcon(basemapIcon)
 
     def createChildren(self):
@@ -111,8 +111,8 @@ class BasemapItem(QgsDataItem):
 
 
 class ConnectionsItem(QgsDataCollectionItem):
-    def __init__(self):
-        QgsDataCollectionItem.__init__(self, None, "Connections", "/Connections")
+    def __init__(self, parent):
+        QgsDataCollectionItem.__init__(self, parent, "Connections", "/Connections")
         self.setIcon(cartoIcon)
         self.populate()
 
@@ -337,12 +337,14 @@ class RootCollection(QgsDataCollectionItem):
     def __init__(self):
         QgsDataCollectionItem.__init__(self, None, "CARTO", "/Carto/root")
         self.setIcon(cartoIcon)
-        # CARTO_CONNECTION.connections_changed.connect(self.connectionsChanged)
+        CARTO_CONNECTION.connections_changed.connect(self.refresh)
 
     def createChildren(self):
-        self.connectionsItem = ConnectionsItem()
-        self.basemapsItem = BasemapsCollection()
-        children = [self.connectionsItem, self.basemapsItem]
+        connectionsItem = ConnectionsItem(self)
+        basemapsItem = BasemapsCollection(self)
+        children = [basemapsItem]
+        if AUTHORIZATION_MANAGER.is_authorized():
+            children.append(connectionsItem)
         return children
 
     def actions(self, parent):
