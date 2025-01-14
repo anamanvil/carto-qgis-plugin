@@ -98,10 +98,7 @@ class DownloadTableTask(QgsTask):
                 return True
             max_rows = min(self.limit or row_count, row_count)
             while True:
-                limit = (
-                    offset + batch_size if offset + batch_size < max_rows else max_rows
-                )
-                where_with_offset = f"{self.where} LIMIT {limit} OFFSET {offset}"
+                where_with_offset = f"{self.where} LIMIT {batch_size} OFFSET {offset}"
                 data = self.get_rows(where_with_offset)
                 rows = data.get("rows", [])
                 if offset == 0:
@@ -121,7 +118,12 @@ class DownloadTableTask(QgsTask):
                             geom_field = field_name
 
                     if geom_field is not None:
-                        geom_type = rows[0][geom_field]["type"]
+                        for row in rows:
+                            geom = row[geom_field]
+                            if geom is not None:
+                                geom_type = geom.get("type")
+                                if geom_type is not None:
+                                    break
                     else:
                         geom_type = None
                     layer = QgsVectorLayer(
@@ -187,6 +189,9 @@ class DownloadTableTask(QgsTask):
                                 QgsGeometry.fromMultiPolygonXY(multipolygon)
                             )
                     provider.addFeature(feature)
+
+                if offset + batch_size > max_rows:
+                    break
                 offset += batch_size
                 self.setProgress(min((offset + batch_size) / row_count, 1) * 90)
 

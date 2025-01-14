@@ -82,7 +82,11 @@ class DownloadFilteredLayerDialog(BASE, WIDGET):
                     "Maximum number of rows is required", Qgis.Warning, duration=5
                 )
                 return
-            self.limit = limit
+            try:
+                self.limit = int(limit)
+            except ValueError:
+                self.bar.pushMessage("Invalid number of rows", Qgis.Warning, duration=5)
+                return
         else:
             self.limit = MAX_ROWS
         self.accept()
