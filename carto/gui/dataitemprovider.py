@@ -123,6 +123,11 @@ class ConnectionsItem(QgsDataCollectionItem):
             children.append(item)
         return children
 
+    def refresh(self):
+        self.depopulate()
+        CARTO_CONNECTION.clear_connections_cache()
+        super().refresh()
+
 
 class ConnectionItem(QgsDataCollectionItem):
     def __init__(self, parent, connection):

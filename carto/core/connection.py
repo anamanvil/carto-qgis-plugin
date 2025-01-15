@@ -182,9 +182,6 @@ class Schema:
 
         return self._tables
 
-    def clear_tables_cache(self):
-        self._tables = None
-
     @waitcursor
     def can_write(self):
         if self._can_write is None:
