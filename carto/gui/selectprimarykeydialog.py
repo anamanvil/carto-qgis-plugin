@@ -17,8 +17,8 @@ class SelectPrimaryKeyDialog(BASE, WIDGET):
         super(QDialog, self).__init__(parent)
         self.setupUi(self)
 
-        self.buttonBox.accepted.connect(self.okClicked)
-        self.buttonBox.rejected.connect(self.reject)
+        self.btnSetPrimaryKey.clicked.connect(self.okClicked)
+        self.btnSkip.clicked.connect(self.reject)
 
         self.initGui(columns)
 

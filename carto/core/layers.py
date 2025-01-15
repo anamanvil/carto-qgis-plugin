@@ -137,6 +137,7 @@ class LayerTracker:
             if dialog.pk:
                 metadata["pk"] = dialog.pk
                 save_layer_metadata(layer, metadata)
+                pk_field = dialog.pk
             else:
                 iface.messageBar().pushMessage(
                     "Layer has no Primary Key: changes will not be uploaded upstream",
