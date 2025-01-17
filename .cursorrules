@@ -1,0 +1,93 @@
+You are building a QGIS plugin to interact with CARTO
+Every time you choose to apply a rule(s),explicitely state the rule(s) in the output. You can abbreviate he rule description a single word or phrase.
+
+
+# Existing Project structure 
+
+.
+├── CONTRIBUTING.md
+├── LICENSE
+├── README.md
+├── carto
+│   ├── TODO.txt
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-39.pyc
+│   │   └── plugin.cpython-39.pyc
+│   ├── core
+│   │   ├── __init__.py
+│   │   ├── __pycache__
+│   │   │   ├── __init__.cpython-39.pyc
+│   │   │   ├── api.cpython-39.pyc
+│   │   │   ├── auth.cpython-39.pyc
+│   │   │   ├── connection.cpython-39.pyc
+│   │   │   ├── downloadtabletask.cpython-39.pyc
+│   │   │   ├── enums.cpython-39.pyc
+│   │   │   ├── importlayertask.cpython-39.pyc
+│   │   │   ├── layers.cpython-39.pyc
+│   │   │   ├── logging.cpython-39.pyc
+│   │   │   └── utils.cpython-39.pyc
+│   │   ├── api.py
+│   │   ├── auth.py
+│   │   ├── connection.py
+│   │   ├── downloadtabletask.py
+│   │   ├── enums.py
+│   │   ├── importlayertask.py
+│   │   ├── layers.py
+│   │   ├── logging.py
+│   │   └── utils.py
+│   ├── gui
+│   │   ├── __init__.py
+│   │   ├── __pycache__
+│   │   │   ├── __init__.cpython-39.pyc
+│   │   │   ├── authorization_manager.cpython-39.pyc
+│   │   │   ├── authorizationsuccessdialog.cpython-39.pyc
+│   │   │   ├── authorizedialog.cpython-39.pyc
+│   │   │   ├── dataitemprovider.cpython-39.pyc
+│   │   │   ├── downloadfilteredlayerdialog.cpython-39.pyc
+│   │   │   ├── extentselectionpanel.cpython-39.pyc
+│   │   │   ├── importdialog.cpython-39.pyc
+│   │   │   ├── selectprimarykeydialog.cpython-39.pyc
+│   │   │   └── utils.cpython-39.pyc
+│   │   ├── authorization_manager.py
+│   │   ├── authorizationsuccessdialog.py
+│   │   ├── authorizationsuccessdialog.ui
+│   │   ├── authorizedialog.py
+│   │   ├── authorizedialog.ui
+│   │   ├── dataitemprovider.py
+│   │   ├── downloadfilteredlayerdialog.py
+│   │   ├── downloadfilteredlayerdialog.ui
+│   │   ├── extentselectionpanel.py
+│   │   ├── extentselectionpanel.ui
+│   │   ├── img
+│   │   │   ├── Data.svg
+│   │   ├── importdialog.py
+│   │   ├── importdialog.ui
+│   │   ├── selectprimarykeydialog.py
+│   │   ├── selectprimarykeydialog.ui
+│   │   ├── settingsdialog.py
+│   │   ├── settingsdialog.ui
+│   │   ├── utils.py
+│   │   └── webpages
+│   │       ├── authorized.html
+│   │       ├── bg-image.png
+│   │       └── carto-logo.png
+│   ├── libs
+│   │   └── json2html
+│   │       ├── __init__.py
+│   │       ├── __pycache__
+│   │       │   ├── __init__.cpython-39.pyc
+│   │       │   └── jsonconv.cpython-39.pyc
+│   │       └── jsonconv.py
+│   ├── metadata.txt
+│   └── plugin.py
+├── helper.py
+├── requirements.txt
+├── requirements_test.txt
+└── setup.cfg
+
+# Tech stack
+- QGIS
+- CARTO
+- Python
+
