@@ -13,6 +13,8 @@ from qgis.core import (
     QgsVectorTileLayer,
     QgsMessageOutput,
     QgsApplication,
+    QgsMessageLog,
+    QgsCoordinateTransform
 )
 from qgis.utils import iface
 from functools import partial
@@ -317,6 +319,23 @@ class TableItem(QgsDataItem):
                 duration=10,
             )
             return
+
+        # Get layer extent and handle CRS
+        extent = layer.extent()
+        if layer.crs() != iface.mapCanvas().mapSettings().destinationCrs():
+            transform = QgsCoordinateTransform(
+                layer.crs(),
+                iface.mapCanvas().mapSettings().destinationCrs(),
+                QgsProject.instance()
+            )
+            extent = transform.transformBoundingBox(extent)
+
+        # Add a small buffer (10%) around the extent for better visualization
+        extent.scale(1.1)
+
+        # Zoom to the extent
+        iface.mapCanvas().setExtent(extent)
+        iface.mapCanvas().refresh()
 
         self.tasks.remove(task)
 
