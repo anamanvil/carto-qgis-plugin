@@ -11,6 +11,9 @@ from qgis.core import (
     Qgis,
     QgsVectorLayer,
     QgsApplication,
+    QgsProject,
+    QgsFeatureRequest,
+    QgsFeature,
 )
 
 from carto.core.api import CARTO_API
@@ -70,8 +73,8 @@ class LayerTracker:
             if is_carto_layer(layer):
                 upload_changes_func = partial(self.upload_changes, layer)
                 layer.afterCommitChanges.connect(upload_changes_func)
-                before_commit_func = partial(self._before_commit, layer)
-                layer.beforeCommitChanges.connect(before_commit_func)
+                before_commit_func = partial(self._on_editing_started, layer)
+                layer.editingStarted.connect(before_commit_func)
                 self.connected[layer.id()] = [upload_changes_func, before_commit_func]
 
     def schema_changed(self, layer, attrs):
@@ -83,23 +86,32 @@ class LayerTracker:
     def geoms_changed(self, layerid, geoms):
         self.layer_changes[layerid].geoms_changed = geoms
 
-    def features_removed(self, layerid, features):
-        self.layer_changes[layerid].features_removed = features
+    def feature_removed(self, layer, featureid):
+        feature = QgsFeature()
+        layer.dataProvider().getFeatures(
+            QgsFeatureRequest().setFilterFid(featureid)
+        ).nextFeature(feature)
+        attributes = {}
+        for attr in feature.fields().names():
+            attributes[attr] = feature[attr]
+        self.layer_changes[layer.id()].features_removed.append(attributes)
 
     def features_added(self, layerid, features):
         self.layer_changes[layerid].features_added = features
 
-    def _before_commit(self, layer):
+    def _on_editing_started(self, layer):
         self.layer_changes[layer.id()] = Changes()
         buffer = layer.editBuffer()
+        feature_removed_func = partial(self.feature_removed, layer)
+        buffer.featureDeleted.connect(feature_removed_func)
         buffer.committedAttributeValuesChanges.connect(self.attributes_changed)
         buffer.committedGeometriesChanges.connect(self.geoms_changed)
-        buffer.committedFeaturesRemoved.connect(self.features_removed)
         buffer.committedFeaturesAdded.connect(self.features_added)
         schema_changed_func = partial(self.schema_changed, layer)
         buffer.committedAttributesAdded.connect(schema_changed_func)
         buffer.committedAttributesDeleted.connect(schema_changed_func)
         self.connected[layer.id()].append(schema_changed_func)
+        self.connected[layer.id()].append(feature_removed_func)
 
     @waitcursor
     def upload_changes(self, layer):
@@ -126,7 +138,7 @@ class LayerTracker:
             return
 
         original_columns = [c["name"] for c in metadata["columns"]]
-        pk_field = metadata["pk"]
+        pk_field = metadata.get("pk")
         if not pk_field:
             dialog = SelectPrimaryKeyDialog(original_columns)
             try:
@@ -157,6 +169,11 @@ class LayerTracker:
                 layer.id()
             ].attributes_changed.items():
                 pk_value = layer.getFeature(featureid)[pk_field]
+                pk_value = (
+                    prepare_num_string(pk_value)
+                    if layer.fields().at(pk_field).isNumeric()
+                    else f"'{pk_value}'"
+                )
                 for field_idx, value in change.items():
                     field = layer.fields().at(field_idx)
                     field_name = field.name()
@@ -169,14 +186,23 @@ class LayerTracker:
         if self.layer_changes[layer.id()].geoms_changed:
             for featureid, geom in self.layer_changes[layer.id()].geoms_changed.items():
                 pk_value = layer.getFeature(featureid)[pk_field]
+                pk_value = (
+                    prepare_num_string(pk_value)
+                    if layer.fields().at(pk_field).isNumeric()
+                    else f"'{pk_value}'"
+                )
                 geo_value = prepare_geo_value_for_provider(provider_type, geom)
                 statements.append(
                     f"UPDATE {quoted_fqn} SET {geom_column} = {geo_value} WHERE {pk_field} = {pk_value};"
                 )
         if self.layer_changes[layer.id()].features_removed:
-            for featureid in self.layer_changes[layer.id()].features_removed:
-                feature = layer.getFeature(featureid)
-                pk_value = feature[pk_field]
+            for attributes in self.layer_changes[layer.id()].features_removed:
+                pk_value = attributes[pk_field]
+                pk_value = (
+                    prepare_num_string(pk_value)
+                    if layer.fields().at(pk_field).isNumeric()
+                    else f"'{pk_value}'"
+                )
                 statements.append(
                     f"DELETE FROM {quoted_fqn} WHERE {pk_field} = {pk_value};"
                 )

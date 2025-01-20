@@ -41,8 +41,8 @@ def quote_for_provider(value, provider_type):
             return f""""{parts[0].replace('"', '')}".{parts[1]}.{parts[2]}"""
         else:
             return value
-    elif provider_type == "databricks":
-        return ".".join([f"`{v}`" for v in value.split(".")])
+    elif provider_type == "databricksRest":
+        return ".".join([f"`{v.replace('`', '')}`" for v in value.split(".")])
     return value
 
 
@@ -70,7 +70,7 @@ def prepare_multipart_sql(statements, provider, fqn):
                 END;
                 $$;
                 """
-    elif provider == "databricks":
+    elif provider == "databricksRest":
         return joined
     else:
         return f"""
@@ -117,7 +117,7 @@ def provider_data_type_from_qgis_type(qgis_type, provider):
             QVariant.Bool: "BOOLEAN",
             "geometry": "GEOMETRY",
         },
-        "databricks": {
+        "databricksRest": {
             QVariant.String: "VARCHAR",
             QVariant.Int: "BIGINT",
             QVariant.LongLong: "BIGINT",
@@ -137,12 +137,14 @@ def provider_data_type_from_qgis_type(qgis_type, provider):
 
 
 def prepare_geo_value_for_provider(provider_type, geom):
-    if provider_type == "databricks":
+    if provider_type == "databricksRest":
         return f"'{geom.asWkt()}'"
     else:
         wkb = geom.asWkb().toHex().data().decode()
-        if provider_type in ["bigquery", "snowflake"]:
+        if provider_type == "bigquery":
             return f"ST_GEOGFROMWKB('{wkb}')"
+        elif provider_type == "snowflake":
+            return f"'{wkb}'"
         else:
             return f"ST_GEOMFROMWKB(DECODE('{wkb}', 'hex'))"
 

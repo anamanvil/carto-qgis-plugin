@@ -1,8 +1,10 @@
 import traceback
 import os
+import base64
 
 from qgis.core import (
     QgsTask,
+    QgsGeometry,
 )
 
 from carto.core.layers import save_layer_metadata, filepath_for_table
@@ -30,6 +32,7 @@ from qgis.core import (
     QgsVectorFileWriter,
     QgsCoordinateReferenceSystem,
     QgsProject,
+    QgsWkbTypes,
 )
 
 
@@ -90,7 +93,7 @@ class DownloadTableTask(QgsTask):
     def _download_using_sql(self):
         try:
             self.setProgress(1)
-            batch_size = 100
+            batch_size = min(100, self.limit or 100)
             offset = 0
             row_count = self.row_count()
             if row_count == 0:
@@ -116,16 +119,24 @@ class DownloadTableTask(QgsTask):
                             fields.append(QgsField(field_name, QVariant.Double))
                         elif field_type == "geometry":
                             geom_field = field_name
-
+                    provider_type = self.table.schema.database.connection.provider_type
+                    geom_type = None
                     if geom_field is not None:
                         for row in rows:
-                            geom = row[geom_field]
+                            geom = row.get(geom_field)
                             if geom is not None:
-                                geom_type = geom.get("type")
+                                if provider_type == "databricksRest":
+                                    wkb_bytes = base64.b64decode(geom)
+                                    geom = QgsGeometry()
+                                    geom.fromWkb(wkb_bytes)
+                                    if geom.isGeosValid():
+                                        geom_type = QgsWkbTypes.displayString(
+                                            geom.wkbType()
+                                        )
+                                else:
+                                    geom_type = geom.get("type")
                                 if geom_type is not None:
                                     break
-                    else:
-                        geom_type = None
                     layer = QgsVectorLayer(
                         f"{geom_type}?crs=EPSG:4326", self.table.name, "memory"
                     )
@@ -147,50 +158,56 @@ class DownloadTableTask(QgsTask):
                     for field in fields:
                         feature.setAttribute(field.name(), item.get(field.name()))
 
-                    geom = item.get(geom_field, {})
-                    if geom:
-                        geom_type = geom.get("type")
-                        coordinates = geom.get("coordinates", [])
+                    geom = item.get(geom_field)
+                    if geom is not None:
+                        if provider_type == "databricksRest":
+                            wkb_bytes = base64.b64decode(geom)
+                            geom = QgsGeometry()
+                            geom.fromWkb(wkb_bytes)
+                            feature.setGeometry(geom)
+                        else:
+                            geom_type = geom.get("type")
+                            coordinates = geom.get("coordinates", [])
 
-                        if geom_type == "Point" and len(coordinates) == 2:
-                            point = QgsPointXY(coordinates[0], coordinates[1])
-                            feature.setGeometry(QgsGeometry.fromPointXY(point))
-                        elif geom_type == "LineString":
-                            line = [QgsPointXY(x, y) for x, y in coordinates]
-                            feature.setGeometry(QgsGeometry.fromPolylineXY(line))
-                        elif geom_type == "Polygon":
-                            polygon = [
-                                [QgsPointXY(x, y) for x, y in ring]
-                                for ring in coordinates
-                            ]
-                            feature.setGeometry(QgsGeometry.fromPolygonXY(polygon))
-                        elif geom_type == "MultiPoint":
-                            multipoint = [QgsPointXY(x, y) for x, y in coordinates]
-                            feature.setGeometry(
-                                QgsGeometry.fromMultiPointXY(multipoint)
-                            )
-                        elif geom_type == "MultiLineString":
-                            multiline = [
-                                [QgsPointXY(x, y) for x, y in line]
-                                for line in coordinates
-                            ]
-                            feature.setGeometry(
-                                QgsGeometry.fromMultiPolylineXY(multiline)
-                            )
-                        elif geom_type == "MultiPolygon":
-                            multipolygon = [
-                                [
+                            if geom_type == "Point" and len(coordinates) == 2:
+                                point = QgsPointXY(coordinates[0], coordinates[1])
+                                feature.setGeometry(QgsGeometry.fromPointXY(point))
+                            elif geom_type == "LineString":
+                                line = [QgsPointXY(x, y) for x, y in coordinates]
+                                feature.setGeometry(QgsGeometry.fromPolylineXY(line))
+                            elif geom_type == "Polygon":
+                                polygon = [
                                     [QgsPointXY(x, y) for x, y in ring]
-                                    for ring in polygon
+                                    for ring in coordinates
                                 ]
-                                for polygon in coordinates
-                            ]
-                            feature.setGeometry(
-                                QgsGeometry.fromMultiPolygonXY(multipolygon)
-                            )
+                                feature.setGeometry(QgsGeometry.fromPolygonXY(polygon))
+                            elif geom_type == "MultiPoint":
+                                multipoint = [QgsPointXY(x, y) for x, y in coordinates]
+                                feature.setGeometry(
+                                    QgsGeometry.fromMultiPointXY(multipoint)
+                                )
+                            elif geom_type == "MultiLineString":
+                                multiline = [
+                                    [QgsPointXY(x, y) for x, y in line]
+                                    for line in coordinates
+                                ]
+                                feature.setGeometry(
+                                    QgsGeometry.fromMultiPolylineXY(multiline)
+                                )
+                            elif geom_type == "MultiPolygon":
+                                multipolygon = [
+                                    [
+                                        [QgsPointXY(x, y) for x, y in ring]
+                                        for ring in polygon
+                                    ]
+                                    for polygon in coordinates
+                                ]
+                                feature.setGeometry(
+                                    QgsGeometry.fromMultiPolygonXY(multipolygon)
+                                )
                     provider.addFeature(feature)
 
-                if offset + batch_size > max_rows:
+                if offset + batch_size >= max_rows:
                     break
                 offset += batch_size
                 self.setProgress(min((offset + batch_size) / row_count, 1) * 90)
@@ -212,18 +229,6 @@ class DownloadTableTask(QgsTask):
                 QgsProject.instance().transformContext(),
                 options,
             )
-
-            """
-            QgsVectorFileWriter.writeAsVectorFormat(
-                layer,
-                geopackage_file,
-                "UTF-8",
-                layer.crs(),
-                "GPKG",
-                layerOptions=["OVERWRITE=YES"],
-            )
-            gpkglayer = QgsVectorLayer(geopackage_file, self.table.name, "ogr")
-            """
 
             layer_metadata = {
                 "pk": self.table.pk(),
