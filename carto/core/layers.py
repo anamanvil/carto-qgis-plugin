@@ -22,7 +22,7 @@ from carto.core.utils import (
     quote_for_provider,
     prepare_multipart_sql,
     prepare_geo_value_for_provider,
-    prepare_num_string,
+    prepare_attribute_string,
 )
 from carto.gui.utils import waitcursor
 from carto.gui.selectprimarykeydialog import SelectPrimaryKeyDialog
@@ -87,6 +87,7 @@ class LayerTracker:
         self.layer_changes[layerid].geoms_changed = geoms
 
     def feature_removed(self, layer, featureid):
+        print(f"feature_removed {featureid}")
         feature = QgsFeature()
         layer.dataProvider().getFeatures(
             QgsFeatureRequest().setFilterFid(featureid)
@@ -94,7 +95,11 @@ class LayerTracker:
         attributes = {}
         for attr in feature.fields().names():
             attributes[attr] = feature[attr]
-        self.layer_changes[layer.id()].features_removed.append(attributes)
+
+        # this event is triggered for features that are added, which are removed after commit.
+        # We avoid taking them into account, to avoid errors when uploading changes
+        if attributes:
+            self.layer_changes[layer.id()].features_removed.append(attributes)
 
     def features_added(self, layerid, features):
         self.layer_changes[layerid].features_added = features
@@ -169,16 +174,16 @@ class LayerTracker:
                 layer.id()
             ].attributes_changed.items():
                 pk_value = layer.getFeature(featureid)[pk_field]
-                pk_value = (
-                    prepare_num_string(pk_value)
-                    if layer.fields().at(pk_field).isNumeric()
-                    else f"'{pk_value}'"
+                pk_value = prepare_attribute_string(
+                    pk_value,
+                    layer.fields().at(layer.fields().indexOf(pk_field)).isNumeric(),
                 )
                 for field_idx, value in change.items():
                     field = layer.fields().at(field_idx)
                     field_name = field.name()
-                    value = (
-                        prepare_num_string(value) if field.isNumeric() else f"'{value}'"
+                    value = prepare_attribute_string(
+                        value,
+                        field.isNumeric(),
                     )
                     statements.append(
                         f"UPDATE {quoted_fqn} SET {field_name} = {value} WHERE {pk_field} = {pk_value};"
@@ -186,27 +191,27 @@ class LayerTracker:
         if self.layer_changes[layer.id()].geoms_changed:
             for featureid, geom in self.layer_changes[layer.id()].geoms_changed.items():
                 pk_value = layer.getFeature(featureid)[pk_field]
-                pk_value = (
-                    prepare_num_string(pk_value)
-                    if layer.fields().at(pk_field).isNumeric()
-                    else f"'{pk_value}'"
+                pk_value = prepare_attribute_string(
+                    pk_value,
+                    layer.fields().at(layer.fields().indexOf(pk_field)).isNumeric(),
                 )
                 geo_value = prepare_geo_value_for_provider(provider_type, geom)
                 statements.append(
                     f"UPDATE {quoted_fqn} SET {geom_column} = {geo_value} WHERE {pk_field} = {pk_value};"
                 )
         if self.layer_changes[layer.id()].features_removed:
+            print(f"features_removed {self.layer_changes[layer.id()].features_removed}")
             for attributes in self.layer_changes[layer.id()].features_removed:
                 pk_value = attributes[pk_field]
-                pk_value = (
-                    prepare_num_string(pk_value)
-                    if layer.fields().at(pk_field).isNumeric()
-                    else f"'{pk_value}'"
+                pk_value = prepare_attribute_string(
+                    pk_value,
+                    layer.fields().at(layer.fields().indexOf(pk_field)).isNumeric(),
                 )
                 statements.append(
                     f"DELETE FROM {quoted_fqn} WHERE {pk_field} = {pk_value};"
                 )
         if self.layer_changes[layer.id()].features_added:
+            print(f"features_added {self.layer_changes[layer.id()].features_added}")
             for feature in self.layer_changes[layer.id()].features_added:
                 fields = []
                 values = []
@@ -220,10 +225,9 @@ class LayerTracker:
                     field_name = field.name()
                     if field_name in original_columns:
                         value = feature[field.name()]
-                        value = (
-                            prepare_num_string(value)
-                            if field.isNumeric()
-                            else f"'{value}'"
+                        value = prepare_attribute_string(
+                            value,
+                            field.isNumeric(),
                         )
                         fields.append(field_name)
                         values.append(value)

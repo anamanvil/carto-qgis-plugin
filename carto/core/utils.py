@@ -4,6 +4,7 @@ import shutil
 from carto.gui.utils import waitcursor
 
 from qgis.PyQt.QtCore import QSettings, QVariant
+from qgis.core import NULL
 
 NAMESPACE = "carto"
 TOKEN = "token"
@@ -161,3 +162,12 @@ def prepare_num_string(n):
     if is_integer_num(n):
         return str(int(n))
     return str(n)
+
+
+def prepare_attribute_string(value, isNumeric):
+    if value == NULL:
+        return "NULL"
+    if isNumeric:
+        return prepare_num_string(value)
+    else:
+        return f"'{value}'"
