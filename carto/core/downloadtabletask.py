@@ -126,13 +126,26 @@ class DownloadTableTask(QgsTask):
                             geom = row.get(geom_field)
                             if geom is not None:
                                 if provider_type == "databricksRest":
-                                    wkb_bytes = base64.b64decode(geom)
-                                    geom = QgsGeometry()
-                                    geom.fromWkb(wkb_bytes)
-                                    if geom.isGeosValid():
-                                        geom_type = QgsWkbTypes.displayString(
-                                            geom.wkbType()
-                                        )
+                                    try:
+                                        wkb_bytes = base64.b64decode(geom)
+                                        qgsgeom = QgsGeometry()
+                                        qgsgeom.fromWkb(wkb_bytes)
+                                        if qgsgeom.isGeosValid():
+                                            geom_type = QgsWkbTypes.displayString(
+                                                qgsgeom.wkbType()
+                                            )
+                                    except Exception:
+                                        try:
+                                            qgsgeom.fromWkt(geom)
+                                            if qgsgeom.isGeosValid():
+                                                geom_type = QgsWkbTypes.displayString(
+                                                    qgsgeom.wkbType()
+                                                )
+                                        except Exception:
+                                            try:
+                                                geom_type = geom.get("type")
+                                            except Exception:
+                                                geom_type = None
                                 else:
                                     geom_type = geom.get("type")
                                 if geom_type is not None:
@@ -151,6 +164,63 @@ class DownloadTableTask(QgsTask):
                 if self.isCanceled():
                     return False
 
+                def _set_geometry(f, g):
+                    try:
+                        wkb_bytes = base64.b64decode(g)
+                        qgsgeom = QgsGeometry()
+                        qgsgeom.fromWkb(wkb_bytes)
+                        f.setGeometry(qgsgeom)
+                    except Exception:
+                        try:
+                            qgsgeom.fromWkt(g)
+                            f.setGeometry(qgsgeom)
+                        except Exception:
+                            try:
+                                geom_type = g.get("type")
+                                coordinates = g.get("coordinates", [])
+                                if geom_type == "Point" and len(coordinates) == 2:
+                                    point = QgsPointXY(coordinates[0], coordinates[1])
+                                    f.setGeometry(QgsGeometry.fromPointXY(point))
+                                elif geom_type == "LineString":
+                                    line = [QgsPointXY(x, y) for x, y in coordinates]
+                                    f.setGeometry(QgsGeometry.fromPolylineXY(line))
+                                elif geom_type == "Polygon":
+                                    polygon = [
+                                        [QgsPointXY(x, y) for x, y in ring]
+                                        for ring in coordinates
+                                    ]
+                                    f.setGeometry(QgsGeometry.fromPolygonXY(polygon))
+                                elif geom_type == "MultiPoint":
+                                    multipoint = [
+                                        QgsPointXY(x, y) for x, y in coordinates
+                                    ]
+                                    f.setGeometry(
+                                        QgsGeometry.fromMultiPointXY(multipoint)
+                                    )
+                                elif geom_type == "MultiLineString":
+                                    multiline = [
+                                        [QgsPointXY(x, y) for x, y in line]
+                                        for line in coordinates
+                                    ]
+                                    f.setGeometry(
+                                        QgsGeometry.fromMultiPolylineXY(multiline)
+                                    )
+                                elif geom_type == "MultiPolygon":
+                                    multipolygon = [
+                                        [
+                                            [QgsPointXY(x, y) for x, y in ring]
+                                            for ring in polygon
+                                        ]
+                                        for polygon in coordinates
+                                    ]
+                                    f.setGeometry(
+                                        QgsGeometry.fromMultiPolygonXY(multipolygon)
+                                    )
+                            except Exception as e:
+                                print(e)
+                        except Exception:
+                            print(e)
+
                 for item in rows:
                     feature = QgsFeature()
                     feature.setFields(fields)
@@ -160,51 +230,8 @@ class DownloadTableTask(QgsTask):
 
                     geom = item.get(geom_field)
                     if geom is not None:
-                        if provider_type == "databricksRest":
-                            wkb_bytes = base64.b64decode(geom)
-                            geom = QgsGeometry()
-                            geom.fromWkb(wkb_bytes)
-                            feature.setGeometry(geom)
-                        else:
-                            geom_type = geom.get("type")
-                            coordinates = geom.get("coordinates", [])
+                        _set_geometry(feature, geom)
 
-                            if geom_type == "Point" and len(coordinates) == 2:
-                                point = QgsPointXY(coordinates[0], coordinates[1])
-                                feature.setGeometry(QgsGeometry.fromPointXY(point))
-                            elif geom_type == "LineString":
-                                line = [QgsPointXY(x, y) for x, y in coordinates]
-                                feature.setGeometry(QgsGeometry.fromPolylineXY(line))
-                            elif geom_type == "Polygon":
-                                polygon = [
-                                    [QgsPointXY(x, y) for x, y in ring]
-                                    for ring in coordinates
-                                ]
-                                feature.setGeometry(QgsGeometry.fromPolygonXY(polygon))
-                            elif geom_type == "MultiPoint":
-                                multipoint = [QgsPointXY(x, y) for x, y in coordinates]
-                                feature.setGeometry(
-                                    QgsGeometry.fromMultiPointXY(multipoint)
-                                )
-                            elif geom_type == "MultiLineString":
-                                multiline = [
-                                    [QgsPointXY(x, y) for x, y in line]
-                                    for line in coordinates
-                                ]
-                                feature.setGeometry(
-                                    QgsGeometry.fromMultiPolylineXY(multiline)
-                                )
-                            elif geom_type == "MultiPolygon":
-                                multipolygon = [
-                                    [
-                                        [QgsPointXY(x, y) for x, y in ring]
-                                        for ring in polygon
-                                    ]
-                                    for polygon in coordinates
-                                ]
-                                feature.setGeometry(
-                                    QgsGeometry.fromMultiPolygonXY(multipolygon)
-                                )
                     provider.addFeature(feature)
 
                 if offset + batch_size >= max_rows:
