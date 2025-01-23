@@ -48,9 +48,9 @@
    </item>
    <item row="0" column="1">
     <widget class="QLabel" name="label">
-     <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The table you are adding doesn't have a Primary Key defined. If you plan to edit this data and upload your changes back to the original table, a Primary Key is necessary.&lt;br/&gt;&lt;br/&gt;If you only want to visualize the data, you can skip this step.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-     </property>
+    <property name="text">
+    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The table you are editing does not have a primary key defined, which means we cannot directly modify the data. Please select an attribute to be used as the primary key to proceed with editing and saving your changes.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+    </property>
      <property name="wordWrap">
       <bool>true</bool>
      </property>
