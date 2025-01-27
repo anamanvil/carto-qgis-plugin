@@ -20,6 +20,7 @@ from carto.core.api import CARTO_API
 from carto.core.logging import error
 from carto.core.utils import (
     quote_for_provider,
+    quote_column_name_for_provider,
     prepare_multipart_sql,
     prepare_geo_value_for_provider,
     prepare_attribute_string,
@@ -229,7 +230,9 @@ class LayerTracker:
                             value,
                             field.isNumeric(),
                         )
-                        fields.append(field_name)
+                        fields.append(
+                            quote_column_name_for_provider(field_name, provider_type)
+                        )
                         values.append(value)
                 statements.append(
                     f"INSERT INTO {quoted_fqn} ({','.join(fields)}) VALUES ({','.join(values)});"

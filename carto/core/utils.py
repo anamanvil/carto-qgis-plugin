@@ -47,6 +47,15 @@ def quote_for_provider(value, provider_type):
     return value
 
 
+def quote_column_name_for_provider(value, provider_type):
+    if provider_type in ["databricksRest", "bigquery"]:
+        return f"`{value}`"
+    elif provider_type in ["postgres", "redshift", "snowflake"]:
+        return f'"{value}"'
+    else:
+        return value
+
+
 def prepare_multipart_sql(statements, provider, fqn):
     joined = "\n".join(statements)
     if provider == "redshift":
