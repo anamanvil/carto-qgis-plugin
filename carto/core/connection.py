@@ -189,16 +189,22 @@ class Schema:
                 f"{self.database.databaseid}.{self.schemaid}.__qgis_test_table",
                 self.database.connection.provider_type,
             )
-            sql = f"""
-                DROP TABLE IF EXISTS {fqn};
-                CREATE TABLE {fqn} AS (SELECT 1 AS id);
-                DROP TABLE {fqn};
-                """
-            sql = prepare_multipart_sql(
-                [sql], self.database.connection.provider_type, fqn
-            )
+            sql = [
+                f"DROP TABLE IF EXISTS {fqn};",
+                f"CREATE TABLE {fqn} AS (SELECT 1 AS id);",
+                f"DROP TABLE {fqn};",
+            ]
             try:
-                CARTO_API.execute_query(self.database.connection.name, sql)
+                if self.database.connection.provider_type == "databricksRest":
+                    for statement in sql:
+                        CARTO_API.execute_query(
+                            self.database.connection.name, statement
+                        )
+                else:
+                    sql = prepare_multipart_sql(
+                        sql, self.database.connection.provider_type, fqn
+                    )
+                    CARTO_API.execute_query(self.database.connection.name, sql)
                 self._can_write = True
             except Exception as e:
                 self._can_write = False
@@ -245,6 +251,9 @@ class Schema:
             level=Qgis.Info,
             duration=5,
         )
+
+    def clear_tables_cache(self):
+        self._tables = None
 
 
 class Table:

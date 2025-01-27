@@ -62,7 +62,7 @@ def prepare_multipart_sql(statements, provider, fqn):
         schema_path = ".".join(fqn.split(".")[:2])
         proc_name = f"{schema_path}.carto_{uuid.uuid4().hex}"
         return f"""
-            CREATE OR REPLACE PROCEDURE ${proc_name}()
+            CREATE OR REPLACE PROCEDURE {proc_name}()
                 AS $$
                 BEGIN
                   {joined}
@@ -70,7 +70,7 @@ def prepare_multipart_sql(statements, provider, fqn):
                 $$ LANGUAGE plpgsql;
 
             CALL {proc_name}();
-            DROP PROCEDURE {proc_name}();`
+            DROP PROCEDURE {proc_name}();
             """
     elif provider == "postgres":
         return f"""
