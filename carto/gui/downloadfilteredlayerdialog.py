@@ -25,14 +25,14 @@ WIDGET, BASE = uic.loadUiType(
 
 
 class DownloadFilteredLayerDialog(BASE, WIDGET):
-    def __init__(self, table, parent=None):
+    def __init__(self, table, connection, parent=None):
         parent = parent or iface.mainWindow()
         super(QDialog, self).__init__(parent)
         self.setupUi(self)
         self.table = table
         self.where = None
         self.limit = None
-
+        self.connection = connection
         self.bar = QgsMessageBar()
         self.bar.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
         self.layout().addWidget(self.bar)
@@ -64,9 +64,21 @@ class DownloadFilteredLayerDialog(BASE, WIDGET):
             rectangle4326 = QgsRectangle(
                 bottom_left.x(), bottom_left.y(), top_right.x(), top_right.y()
             )
-            statements.append(
-                f"ST_INTERSECTS({geom_column}, ST_GEOGFROMTEXT('{rectangle4326.asWktPolygon()}'))"
-            )
+            if self.connection.provider_type == "databricksRest":
+                statements.append(
+                    f"ST_INTERSECTS(ST_GEOMFROMWKB({geom_column}), ST_GEOMFROMTEXT('{rectangle4326.asWktPolygon()}'))"
+                )
+            elif self.connection.provider_type in ["postgres", "redshift"]:
+                statements.append(
+                    f"""ST_INTERSECTS(
+                        ST_TRANSFORM({geom_column}, 4326),
+                        ST_SET_SRID(ST_GEOMFROMTEXT('{rectangle4326.asWktPolygon()}'), 4326)
+                    )"""
+                )
+            else:
+                statements.append(
+                    f"ST_INTERSECTS({geom_column}, ST_GEOGFROMTEXT('{rectangle4326.asWktPolygon()}'))"
+                )
         elif self.grpWhereFilter.isChecked():
             statements.append(self.txtWhere.text())
         elif not self.grpLimit.isChecked():

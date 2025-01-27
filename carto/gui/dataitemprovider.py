@@ -14,7 +14,7 @@ from qgis.core import (
     QgsMessageOutput,
     QgsApplication,
     QgsMessageLog,
-    QgsCoordinateTransform
+    QgsCoordinateTransform,
 )
 from qgis.utils import iface
 from functools import partial
@@ -263,7 +263,9 @@ class TableItem(QgsDataItem):
         dlg.showMessage()
 
     def add_layer_filtered(self):
-        dlg = DownloadFilteredLayerDialog(self.table)
+        dlg = DownloadFilteredLayerDialog(
+            self.table, self.table.schema.database.connection
+        )
         dlg.show()
         ret = dlg.exec_()
         if ret == QDialog.Accepted:
@@ -326,7 +328,7 @@ class TableItem(QgsDataItem):
             transform = QgsCoordinateTransform(
                 layer.crs(),
                 iface.mapCanvas().mapSettings().destinationCrs(),
-                QgsProject.instance()
+                QgsProject.instance(),
             )
             extent = transform.transformBoundingBox(extent)
 
