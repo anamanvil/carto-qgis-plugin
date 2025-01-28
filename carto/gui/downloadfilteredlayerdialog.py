@@ -72,7 +72,7 @@ class DownloadFilteredLayerDialog(BASE, WIDGET):
                 statements.append(
                     f"""ST_INTERSECTS(
                         ST_TRANSFORM({geom_column}, 4326),
-                        ST_SET_SRID(ST_GEOMFROMTEXT('{rectangle4326.asWktPolygon()}'), 4326)
+                        ST_SETSRID(ST_GEOMFROMTEXT('{rectangle4326.asWktPolygon()}'), 4326)
                     )"""
                 )
             else:
