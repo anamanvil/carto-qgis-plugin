@@ -195,16 +195,8 @@ class Schema:
                 f"DROP TABLE {fqn};",
             ]
             try:
-                if self.database.connection.provider_type == "databricksRest":
-                    for statement in sql:
-                        CARTO_API.execute_query(
-                            self.database.connection.name, statement
-                        )
-                else:
-                    sql = prepare_multipart_sql(
-                        sql, self.database.connection.provider_type, fqn
-                    )
-                    CARTO_API.execute_query(self.database.connection.name, sql)
+                for statement in sql:
+                    CARTO_API.execute_query(self.database.connection.name, statement)
                 self._can_write = True
             except Exception as e:
                 self._can_write = False
