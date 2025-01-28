@@ -11,6 +11,24 @@ import xmlrpc.client
 import zipfile
 from configparser import ConfigParser
 from io import StringIO
+import subprocess
+
+
+def get_git_hash_id():
+    repo_path = os.path.dirname(__file__)
+    try:
+        # Run the git command to get the short hash ID
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+    except subprocess.CalledProcessError as e:
+        print(f"Error getting Git hash ID: {e}")
+        return None
 
 
 def package(version=None):
@@ -32,6 +50,9 @@ def package(version=None):
 
         if version:
             cfg.set("general", "version", re.sub(r"^v", "", version))
+        else:
+            version = cfg.get("general", "version")
+            cfg.set("general", "version", f"{version}-dev-{get_git_hash_id()}")
 
         buf = StringIO()
         cfg.write(buf)
