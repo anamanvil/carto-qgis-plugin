@@ -1,9 +1,6 @@
 from carto.core.api import CARTO_API
 from carto.core.layers import filepath_for_table
-from carto.core.utils import (
-    quote_for_provider,
-    prepare_multipart_sql,
-)
+from carto.core.utils import quote_for_provider
 from carto.gui.utils import waitcursor
 from carto.core.importlayertask import ImportLayerTask
 from carto.gui.authorization_manager import AUTHORIZATION_MANAGER

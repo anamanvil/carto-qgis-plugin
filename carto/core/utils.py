@@ -61,33 +61,38 @@ def prepare_multipart_sql(statements, provider, fqn):
     if provider == "redshift":
         schema_path = ".".join(fqn.split(".")[:2])
         proc_name = f"{schema_path}.carto_{uuid.uuid4().hex}"
-        return f"""
+        return [
+            f"""
             CREATE OR REPLACE PROCEDURE {proc_name}()
                 AS $$
                 BEGIN
-                  {joined}
+                {joined}
                 END;
                 $$ LANGUAGE plpgsql;
-
-            CALL {proc_name}();
-            DROP PROCEDURE {proc_name}();
-            """
+            """,
+            f"CALL {proc_name}();",
+            f"DROP PROCEDURE {proc_name}();",
+        ]
     elif provider == "postgres":
-        return f"""
-                DO $$
-                BEGIN
-                    {joined}
-                END;
-                $$;
-                """
+        return [
+            f"""
+            DO $$
+            BEGIN
+                {joined}
+            END;
+            $$;
+            """,
+        ]
     elif provider == "databricksRest":
-        return joined
+        return [joined]
     else:
-        return f"""
+        return [
+            f"""
             BEGIN
                 {joined}
             END;
             """
+        ]
 
 
 def provider_data_type_from_qgis_type(qgis_type, provider):
@@ -155,6 +160,8 @@ def prepare_geo_value_for_provider(provider_type, geom):
             return f"ST_GEOGFROMWKB('{wkb}')"
         elif provider_type == "snowflake":
             return f"'{wkb}'"
+        elif provider_type == "redshift":
+            return f"ST_GEOMFROMWKB('{wkb}')"
         else:
             return f"ST_GEOMFROMWKB(DECODE('{wkb}', 'hex'))"
 

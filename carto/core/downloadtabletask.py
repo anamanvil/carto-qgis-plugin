@@ -218,8 +218,6 @@ class DownloadTableTask(QgsTask):
                                     )
                             except Exception as e:
                                 print(e)
-                        except Exception:
-                            print(e)
 
                 for item in rows:
                     feature = QgsFeature()

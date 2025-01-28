@@ -242,7 +242,8 @@ class LayerTracker:
         connection = connection_from_layer(layer)
         try:
             sql = prepare_multipart_sql(statements, provider_type, fqn)
-            CARTO_API.execute_query(connection, sql)
+            for statement in sql:
+                CARTO_API.execute_query(connection, statement)
             iface.messageBar().pushMessage(
                 "Layer changes uploaded", level=Qgis.Success, duration=5
             )

@@ -51,7 +51,8 @@ class ImportLayerTask(QgsTask):
                 {sql_create}
                 """
             sql_create = prepare_multipart_sql([sql_create], self.provider_type, fqn)
-            CARTO_API.execute_query(self.connection_name, sql_create)
+            for statement in sql_create:
+                CARTO_API.execute_query(self.connection_name, statement)
             self.setProgress(1)
             insert_statements = []
 
@@ -88,24 +89,28 @@ class ImportLayerTask(QgsTask):
             for i in range(num_batches):
                 if self.isCanceled():
                     return False
-                CARTO_API.execute_query_post(
-                    self.connection_name,
-                    prepare_multipart_sql(
-                        insert_statements[i * batch_size : (i + 1) * batch_size],
-                        self.provider_type,
-                        self.fqn,
-                    ),
+                sql = prepare_multipart_sql(
+                    insert_statements[i * batch_size : (i + 1) * batch_size],
+                    self.provider_type,
+                    self.fqn,
                 )
+                for statement in sql:
+                    CARTO_API.execute_query_post(
+                        self.connection_name,
+                        statement,
+                    )
                 self.setProgress(int(i / num_batches * 100))
             if (num_batches * batch_size) < len(insert_statements):
-                CARTO_API.execute_query_post(
-                    self.connection_name,
-                    prepare_multipart_sql(
-                        insert_statements[num_batches * batch_size :],
-                        self.provider_type,
-                        self.fqn,
-                    ),
+                sql = prepare_multipart_sql(
+                    insert_statements[num_batches * batch_size :],
+                    self.provider_type,
+                    self.fqn,
                 )
+                for statement in sql:
+                    CARTO_API.execute_query_post(
+                        self.connection_name,
+                        statement,
+                    )
             return True
         except Exception:
             self.exception = traceback.format_exc()
