@@ -143,7 +143,9 @@ class LayerTracker:
             )
             return
 
-        original_columns = [c["name"] for c in metadata["columns"]]
+        original_columns = [
+            c["name"] for c in metadata["columns"] if c["type"] != "geometry"
+        ]
         pk_field = metadata.get("pk")
         if not pk_field:
             dialog = SelectPrimaryKeyDialog(original_columns)
