@@ -100,13 +100,6 @@
       <number>12</number>
      </property>
      <item>
-      <widget class="QPushButton" name="btnLogout">
-       <property name="text">
-        <string>Logout</string>
-       </property>
-      </widget>
-     </item>
-     <item>
       <spacer name="horizontalSpacer">
        <property name="orientation">
         <enum>Qt::Horizontal</enum>
@@ -120,9 +113,19 @@
       </spacer>
      </item>
      <item>
+      <widget class="QPushButton" name="btnLogout">
+       <property name="text">
+        <string>Logout</string>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QPushButton" name="btnClose">
        <property name="text">
         <string>Close</string>
+       </property>
+       <property name="default">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
