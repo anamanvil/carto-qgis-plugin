@@ -33,7 +33,6 @@ def get_git_hash_id():
 
 def package(version=None):
     if not version or version.startswith("dev-"):
-        # CI uses dev-{SHA}
         archive = "carto.zip"
     else:
         archive = f"carto-{version}.zip"
@@ -52,7 +51,7 @@ def package(version=None):
             cfg.set("general", "version", re.sub(r"^v", "", version))
         else:
             version = cfg.get("general", "version")
-            cfg.set("general", "version", f"{version}-dev-{get_git_hash_id()}")
+            cfg.set("general", "version", f"dev-{get_git_hash_id()}")
 
         buf = StringIO()
         cfg.write(buf)

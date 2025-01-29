@@ -7,11 +7,11 @@ about=The CARTO Plugin enables QGIS users to quickly access, visualize, and edit
 
     The CARTO Plugin connects to multiple cloud data warehouses including Google BigQuery, Snowflake, AWS Redshift, Databricks, and PostgreSQL.
 
-version=1.0.0
+version=0.9
 author=CARTO
 email=support@carto.com
-tags=versioning, data
-homepage=https://kartproject.org
+tags=datawarehouses, carto, data, cloud
+homepage=https://carto.com
 repository=https://github.com/cartodb/carto-qgis-plugin
 tracker=https://github.com/cartodb/carto-qgis-plugin/issues
 icon=gui/img/carto.svg
