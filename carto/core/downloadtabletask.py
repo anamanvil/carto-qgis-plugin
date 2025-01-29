@@ -113,9 +113,9 @@ class DownloadTableTask(QgsTask):
                         field_type = field["type"]
                         if field_type == "string":
                             fields.append(QgsField(field_name, QVariant.String))
-                        elif field_type == "integer":
+                        elif field_type in ["integer", "int", "bigint"]:
                             fields.append(QgsField(field_name, QVariant.Int))
-                        elif field_type in ["double", "number"]:
+                        elif field_type in ["double", "number", "float"]:
                             fields.append(QgsField(field_name, QVariant.Double))
                         elif field_type == "geometry":
                             geom_field = field_name
