@@ -9,7 +9,7 @@ To install the latest version from this repository, follow these steps:
 -   Clone this repository using `git clone`.
 
 ```console
-$ git clone https://github.com/koordinates/carto-qgis-plugin.git
+$ git clone https://github.com/cartodb/carto-qgis-plugin.git
 ```
 
 -   Create a link between the repository folder and the QGIS 3 plugins folder.
@@ -31,11 +31,6 @@ $ python helper.py package
 ```
 
 A `carto.zip` file is generated in the repo root.
-
-## CI
-
-Continuous integration builds an plugin package for every commit, artifacts are
-[available to download](https://github.com/koordinates/carto-qgis-plugin/actions/workflows/build.yml).
 
 ## Code formatting
 
