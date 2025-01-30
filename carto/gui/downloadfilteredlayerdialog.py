@@ -70,10 +70,18 @@ class DownloadFilteredLayerDialog(BASE, WIDGET):
                 )
             elif self.connection.provider_type in ["postgres", "redshift"]:
                 statements.append(
-                    f"""ST_INTERSECTS(
-                        ST_TRANSFORM({geom_column}, 4326),
-                        ST_SETSRID(ST_GEOMFROMTEXT('{rectangle4326.asWktPolygon()}'), 4326)
-                    )"""
+                    f"""CASE
+                        WHEN ST_SRID(geom) = 0 THEN
+                            ST_INTERSECTS(
+                                ST_SETSRID({geom_column}, 4326),
+                                ST_SETSRID(ST_GEOMFROMTEXT('{rectangle4326.asWktPolygon()}'), 4326)
+                            )
+                        ELSE
+                            ST_INTERSECTS(
+                                ST_TRANSFORM({geom_column}, 4326),
+                                ST_SETSRID(ST_GEOMFROMTEXT('{rectangle4326.asWktPolygon()}'), 4326)
+                            )
+                        END"""
                 )
             else:
                 statements.append(
