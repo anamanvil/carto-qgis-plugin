@@ -14,7 +14,6 @@ from qgis.core import (
     QgsProject,
     QgsFeatureRequest,
     QgsFeature,
-    NULL,
 )
 
 from carto.core.api import CARTO_API
@@ -168,7 +167,7 @@ class LayerTracker:
                 return
 
         def pk_operator(value):
-            if value == NULL:
+            if value == "NULL":
                 return "IS NULL"
             else:
                 return f"= {value}"
