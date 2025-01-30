@@ -14,6 +14,7 @@ from qgis.core import (
     QgsProject,
     QgsFeatureRequest,
     QgsFeature,
+    NULL,
 )
 
 from carto.core.api import CARTO_API
@@ -166,6 +167,12 @@ class LayerTracker:
                 )
                 return
 
+        def pk_operator(value):
+            if value == NULL:
+                return "IS NULL"
+            else:
+                return f"= {value}"
+
         statements = []
         provider_type = metadata["provider_type"]
         geom_column = metadata["geom_column"]
@@ -189,7 +196,7 @@ class LayerTracker:
                         field.isNumeric(),
                     )
                     statements.append(
-                        f"UPDATE {quoted_fqn} SET {field_name} = {value} WHERE {pk_field} = {pk_value};"
+                        f"UPDATE {quoted_fqn} SET {field_name} = {value} WHERE {pk_field} {pk_operator(pk_value)};"
                     )
         if self.layer_changes[layer.id()].geoms_changed:
             for featureid, geom in self.layer_changes[layer.id()].geoms_changed.items():
@@ -200,7 +207,7 @@ class LayerTracker:
                 )
                 geo_value = prepare_geo_value_for_provider(provider_type, geom)
                 statements.append(
-                    f"UPDATE {quoted_fqn} SET {geom_column} = {geo_value} WHERE {pk_field} = {pk_value};"
+                    f"UPDATE {quoted_fqn} SET {geom_column} = {geo_value} WHERE {pk_field} {pk_operator(pk_value)};"
                 )
         if self.layer_changes[layer.id()].features_removed:
             print(f"features_removed {self.layer_changes[layer.id()].features_removed}")
@@ -211,7 +218,7 @@ class LayerTracker:
                     layer.fields().at(layer.fields().indexOf(pk_field)).isNumeric(),
                 )
                 statements.append(
-                    f"DELETE FROM {quoted_fqn} WHERE {pk_field} = {pk_value};"
+                    f"DELETE FROM {quoted_fqn} WHERE {pk_field} {pk_operator(pk_value)};"
                 )
         if self.layer_changes[layer.id()].features_added:
             print(f"features_added {self.layer_changes[layer.id()].features_added}")
