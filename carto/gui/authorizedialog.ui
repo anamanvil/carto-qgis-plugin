@@ -67,7 +67,7 @@
      <item>
       <widget class="QLabel" name="label_login">
        <property name="text">
-        <string>Access, visualize and edit spatial data hosted in your datawarehouse through CARTO</string>
+        <string>Access, visualize and edit spatial data hosted in your data warehouse through CARTO</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -120,16 +120,19 @@
       </spacer>
      </item>
      <item>
-      <widget class="QPushButton" name="btnLogin">
+      <widget class="QPushButton" name="btnSignup">
        <property name="text">
-        <string>Log In</string>
+        <string>Sign Up</string>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="btnSignup">
+      <widget class="QPushButton" name="btnLogin">
        <property name="text">
-        <string>Sign Up</string>
+        <string>Log In</string>
+       </property>
+       <property name="default">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
